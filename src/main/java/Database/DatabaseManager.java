@@ -15,7 +15,7 @@ public class DatabaseManager {
     private static final String URL_NO_DB = "jdbc:mysql://localhost:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
     private static final String URL_WITH_DB = "jdbc:mysql://localhost:3306/" + DB_NAME + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
     private static final String ROOT_USER = "root";
-    private static final String ROOT_PASSWORD = "";
+    private static final String ROOT_PASSWORD = "Vrd3115$23";
     private static final String APP_USER = "bicycon_admin";
     private static final String APP_PASSWORD = "Vrd3115$23";
     private static Connection mainConnection;
@@ -82,8 +82,6 @@ public class DatabaseManager {
         }
     }
 
-
-
     /* =========================================================
        START MAIN CONNECTION
        ========================================================= */
@@ -104,7 +102,6 @@ public class DatabaseManager {
        CLOSE CONNECTION
        ========================================================= */
     public static void close() throws SQLException {
-
         if (mainConnection != null && !mainConnection.isClosed()) {
             mainConnection.close();
         }
@@ -116,9 +113,7 @@ public class DatabaseManager {
        EXECUTE SQL
        ========================================================= */
     public static void executeSQL(String sql) throws SQLException {
-
         try (Statement stm = mainConnection.createStatement()) {
-
             stm.execute(sql);
         }
     }
@@ -266,7 +261,7 @@ public class DatabaseManager {
         String query = """
                 UPDATE Accounts_Table SET ProfileUrl = ? WHERE UserID = ?
                 """;
-        try (PreparedStatement stm = DatabaseManager.getConnection().prepareStatement(query)){
+        try (PreparedStatement stm = getConnection().prepareStatement(query)){
             stm.setString(1, url);
             stm.setString(2,UserID);
 
@@ -386,7 +381,6 @@ public class DatabaseManager {
                     }
                 }
             }
-            stm.close();
         }
 
         return null;
@@ -507,6 +501,188 @@ public class DatabaseManager {
 
         return products.toString();
     }
+
+
+    public static String UpdateEmail (String UserID , String NewEmail) throws SQLException {
+        String Query = """
+                UPDATE Accounts_Table SET Email = ?  WHERE UserID = ?
+                """;
+
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+
+            stm.setString(1,NewEmail);
+            stm.setString(2,UserID);
+
+            int row = stm.executeUpdate();
+            System.out.println("OK");
+            if (row > 0){
+                return "OK";
+            }
+
+        }
+        return  "!OK";
+    }
+
+    public static String GET_Retailer_Email_Phone(String Retailer_ID) throws SQLException{
+        JSONObject Result = new JSONObject();
+        String Query = """
+                SELECT Email,Phone FROM Accounts_Table WHERE UserID = ? 
+                """;
+
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+            stm.setString(1,Retailer_ID);
+
+            ResultSet RS = stm.executeQuery();
+            if (RS.next()){
+                Result.put("Email",RS.getString("Email"));
+                Result.put("Phone",RS.getString("Phone"));
+            }
+        }
+
+        return Result.toString();
+    }
+
+    public static String Delete_My_Product (String Product_ID) throws SQLException{
+        String query = "SELECT ProductImageUrl FROM Product_Table WHERE ProductID = ?";
+
+        try (PreparedStatement stm1 = getConnection().prepareStatement(query)){
+            stm1.setString(1,Product_ID);
+            ResultSet rs = stm1.executeQuery();
+            if (rs.next()){
+                String oldImage = rs.getString("ProductImageUrl");
+                if (oldImage != null && !oldImage.isEmpty()){
+                    File file = new File(DatabaseManager.ProductImages + File.separator + oldImage);
+
+                    if (file.exists()){
+                        boolean deleted = file.delete();
+                        System.out.println("file deleted");
+                        if (!deleted) {
+                            System.out.println("Warning: Failed to delete old image");
+                        }
+                    }
+                }
+            }
+
+        }
+
+        String Query = """
+                DELETE FROM Product_Table WHERE ProductID = ?
+                """;
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+            stm.setString(1,Product_ID);
+            if(stm.executeUpdate() > 0){
+                return "OK";
+            }else {
+                return "!OK";
+            }
+        }
+    }
+
+    public static String Get_Category (String Product_ID) throws SQLException{
+        JSONObject Result = new JSONObject();
+        String Query = """
+                SELECT ProductCategory FROM Product_Table WHERE ProductID = ?
+                """;
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+            stm.setString(1,Product_ID);
+            ResultSet RS = stm.executeQuery();
+            if (RS.next()){
+                Result.put("category",RS.getString("ProductCategory"));
+            }
+        }
+        return Result.toString();
+    }
+
+    public static String Update_Prod_Data(JSONObject Data) throws SQLException {
+        JSONObject Result = new JSONObject();
+        String QUERY = """
+        UPDATE Product_Table 
+        SET ProductName = ?, ProductPrice = ?, ProductDescription = ?
+        WHERE ProductID = ?
+        """;
+
+        try (PreparedStatement stm = getConnection().prepareStatement(QUERY)) {
+            stm.setString(1, Data.getString("NewName"));
+            stm.setDouble(2, Data.getDouble("NewPrice")); // if your column is numeric
+            stm.setString(3, Data.getString("NewDescription"));
+            stm.setString(4, Data.getString("ProductID"));
+
+            int i = stm.executeUpdate();
+
+            if (i > 0) {
+                Result.put("status", "OK");
+            } else {
+                Result.put("status", "NOT-UPDATED"); // handles case where no rows matched
+            }
+        }
+
+        return Result.toString();
+    }
+
+    public static String Update_Prod_Data_With_Image(String Image_Name, JSONObject Data) throws SQLException{
+         String select_image_Query = """
+                 SELECT ProductImageUrl FROM Product_Table WHERE ProductID = ?
+                 """;
+         String update_Query = """
+                 UPDATE Product_Table SET ProductName = ?,ProductPrice = ?,ProductDescription = ?,ProductImageUrl = ?
+                 WHERE ProductID = ?
+                 """;
+
+         try (PreparedStatement stm = getConnection().prepareStatement(select_image_Query)){
+             stm.setString(1,Data.getString("ProductID"));
+             ResultSet RS = stm.executeQuery();
+
+             if (RS.next()) {
+                 String oldImage = RS.getString("ProductImageUrl");
+                 System.out.println(oldImage );
+                 // 🔹 Try deleting old image (if exists)
+                 if (oldImage != null && !oldImage.isEmpty()) {
+                     File file = new File(DatabaseManager.ProductImages + File.separator + oldImage);
+
+                     if (file.exists()) {
+                         boolean deleted = file.delete();
+                         System.out.println("file deleted");
+                         if (!deleted) {
+                             System.out.println("Warning: Failed to delete old image");
+                         }
+                     }
+                 }
+
+                 //UPDATE DB
+                 try (PreparedStatement stm1 = getConnection().prepareStatement(update_Query)){
+                     stm1.setString(1,Data.getString("NewName"));
+                     stm1.setString(2,Data.getString("NewPrice"));
+                     stm1.setString(3,Data.getString("NewDescription"));
+                     stm1.setString(4,Image_Name);
+                     stm1.setString(5,Data.getString("ProductID"));
+
+                     int row = stm1.executeUpdate();
+                     if (row > 0) {
+                         return "OK";
+                     }
+                 }
+             }
+         }
+        return null;
+    }
+
+    public static String GET_Retailer_Email_Profile_Phone(String Retailer_ID)throws SQLException{
+        JSONObject Result = new JSONObject();
+        String Query = """
+                SELECT Email,Phone,ProfileUrl FROM Accounts_Table WHERE UserID = ? 
+                """;
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+            stm.setString(1,Retailer_ID);
+            ResultSet RS = stm.executeQuery();;
+            if (RS.next()){
+                Result.put("Email",RS.getString("Email"));
+                Result.put("Phone",RS.getString("Phone"));
+                Result.put("ProfilePic",RS.getString("ProfileUrl"));
+            }
+        }
+        return Result.toString();
+    }
+
     /* =========================================================
        CREATE DIRECTORIES
        ========================================================= */

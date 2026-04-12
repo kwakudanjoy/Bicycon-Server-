@@ -18,4 +18,3 @@ public class ByciconApplication {
         SpringApplication.run(ByciconApplication.class, args);
     }
 }
-
