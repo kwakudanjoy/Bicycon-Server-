@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
 
@@ -104,7 +105,6 @@ public class Processor {
                 }
 
                 case "COMPLETE-ACCOUNT"->{
-
                     DATA.remove("INSTRUCTION");
                     if (DatabaseManager.CompleteAccount(DATA).equals("OK")){
                         JSONObject RESULT = new JSONObject();
@@ -134,9 +134,7 @@ public class Processor {
                 case "GET-MY-PRODUCTS" -> {
                    //System.out.println(DATA);
                     String OutPut = DatabaseManager.GetAllMyProduct(DATA.getString("User_id"));
-                    System.out.println(OutPut);
                     if(OutPut != null){
-                        System.out.println(OutPut);
                         return OutPut;
                     }else {
                         JSONObject Result = new JSONObject();
@@ -158,6 +156,18 @@ public class Processor {
                         return Result.toString();
                     }
                     return  null;
+                }
+
+                case "UPDATE-MY-PHONE"->{
+                    JSONObject Result = new JSONObject();
+                    String newPhone = DATA.getString("new_Phone");
+                    String UserID = DATA.getString("UserID");
+
+                    if(DatabaseManager.UpdatePhone(UserID,newPhone).equals("OK")){
+                        Result.put("status","OK");
+                        Result.put("New_Phone",newPhone);
+                    }
+                    return Result.toString();
                 }
 
                 case "GET-RETAILER-EMAIL & PHONE" ->{
@@ -200,6 +210,28 @@ public class Processor {
                 case "UPDATE-PROD-DATA"->{
                     DATA.remove("INSTRUCTION");
                     return DatabaseManager.Update_Prod_Data(DATA);
+                }
+
+                case "PLACE-ORDER"->{
+                    JSONObject Result = new JSONObject();
+                    if (Objects.equals(DatabaseManager.PlaceOrder(DATA), "OK")){
+                       Result.put("status","OK");
+                    }
+                    return Result.toString();
+                }
+
+                case "GET-MY-ORDERS"->{
+                    String UserID = DATA.getString("User_id");
+                    return DatabaseManager.GET_MY_ORDERS(UserID);
+                }
+
+                case "SET-ORDER-STATUS"->{
+                    String Result = DatabaseManager.SET_ORDER_STATUS(DATA);
+                    JSONObject Resultj = new JSONObject();
+                    if (Result.equals("OK")){
+                        Resultj.put("status","OK");
+                    }
+                    return Resultj.toString();
                 }
 
                 case "PING" -> {

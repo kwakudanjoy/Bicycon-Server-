@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/store.css}">
+    <title th:text="${retailer.retailerName}"></title>
+</head>
+
+<body>
+    <div id="loading-overlay" class="hidden">
+        <div class="loader-circle"><i class="fa-solid fa-bicycle"></i></div>
+    </div>
+    <nav>
+        <div class="profile">
+            <div class="user-icon"><i class="fa-solid fa-user"></i></div>
+            <div class="user-pic"><img src="" alt=""></div>
+        </div>
+        <div class="meta-data">
+            <p class="name" th:text="${retailer.retailerName}"></p>
+            <p class="id" th:text="${retailer.retailerId}"></p>
+            <p class="email" th:text="${retailer.retailerEmail}"></p>
+            <div class="nav-bottom">
+                <p class="phone" th:text="${retailer.retailerPhone}"></p>
+                <i class="fa-solid fa-phone"></i>
+            </div>
+        </div>
+    </nav>
+    <main>
+
+    </main>
+    <script th:inline="javascript">
+        const Profile = /*[[${retailer.retailerProfile}]]*/ null;
+    </script>
+
+    <script th:src="@{/store.js}"></script>
+</body>
+
+</html>

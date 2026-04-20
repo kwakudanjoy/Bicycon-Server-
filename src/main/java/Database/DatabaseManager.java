@@ -2,12 +2,16 @@ package Database;
 
 import org.example.bycicon.Fetch_Categories;
 import org.example.bycicon.SHA256;
+import org.example.bycicon.Search_Engine;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import javax.print.DocFlavor;
 import java.io.File;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class DatabaseManager {
 
@@ -43,6 +47,7 @@ public class DatabaseManager {
         startMainConnection();
         createAccountTable();
         CreateProductTable();
+        CreatePlaceOrderTable();
         System.out.println("Database Boot Completed");
     }
 
@@ -162,16 +167,36 @@ public class DatabaseManager {
                   OwnerID VARCHAR(20),
                   ProductID VARCHAR(20),
                   ProductName VARCHAR (2000),
-                  ProductPrice VARCHAR (2000),
+                  ProductPrice INT,
                   ProductCategory VARCHAR (20),
                   ProductDescription VARCHAR(2000),
-                  ProductImageUrl VARCHAR(200)
+                  ProductImageUrl VARCHAR(200),
+                  ProductTimeStamp VARCHAR(200),
+                  TryToBuyCount DOUBLE
                 )
                 """;
 
         executeSQL(query);
     }
 
+    private static void CreatePlaceOrderTable() throws SQLException {
+        String Query = """
+                CREATE TABLE IF NOT EXISTS Order_Table(
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                OwnerID VARCHAR(200),
+                OrderID VARCHAR(5),
+                ProductID VARCHAR(20),
+                Date_Of_Order VARCHAR(200),
+                Time_Of_Order VARCHAR(200),
+                Quantity INT,
+                Amount_Per_Product INT,
+                Total_Amount INT,
+                CustomerPhone VARCHAR(20),
+                Order_Status VARCHAR(10)
+                )
+                """;
+        executeSQL(Query);
+    }
 
     /* =========================================================
        CONFIRM LOGIN
@@ -287,18 +312,20 @@ public class DatabaseManager {
                 ProductPrice,
                 ProductCategory,
                 ProductDescription,
-                ProductImageUrl) 
-                VALUES (?,?,?,?,?,?,?)
+                ProductImageUrl,
+                ProductTimeStamp) 
+                VALUES (?,?,?,?,?,?,?,?)
                 """;
 
         try(PreparedStatement statement = getConnection().prepareStatement(Query)){
             statement.setString(1,Data.getString("owner"));
             statement.setString(2,Data.getString("ProdID"));
             statement.setString(3,Data.getString("name"));
-            statement.setString(4,Data.getString("price"));
+            statement.setInt(4,Data.getInt("price"));
             statement.setString(5,Data.getString("Category"));
             statement.setString(6,Data.getString("Description"));
             statement.setString(7,Data.getString("ProdUrl"));
+            statement.setString(8,String.valueOf(LocalDateTime.now()));
 
             statement.executeUpdate();
         }
@@ -315,7 +342,8 @@ public class DatabaseManager {
                ProductName,
                ProductPrice,
                ProductDescription,
-               ProductImageUrl
+               ProductImageUrl,
+               ProductTimeStamp
         FROM Product_Table
         WHERE OwnerID = ?
     """;
@@ -330,10 +358,10 @@ public class DatabaseManager {
 
                 product.put("Id", rs.getString("ProductID"));
                 product.put("name", rs.getString("ProductName"));
-                product.put("price", rs.getString("ProductPrice"));
+                product.put("price", rs.getInt("ProductPrice"));
                 product.put("description", rs.getString("ProductDescription"));
                 product.put("Url", rs.getString("ProductImageUrl"));
-
+                product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
                 allProducts.put(product);
             }
 
@@ -356,14 +384,12 @@ public class DatabaseManager {
 
             if (rs.next()) {
                 String oldImage = rs.getString("ProfileUrl");
-                System.out.println(oldImage );
                 // 🔹 Try deleting old image (if exists)
                 if (oldImage != null && !oldImage.isEmpty()) {
                     File file = new File(DatabaseManager.BicyconProfile + File.separator + oldImage);
 
                     if (file.exists()) {
                         boolean deleted = file.delete();
-                        System.out.println("file deleted");
                         if (!deleted) {
                             System.out.println("Warning: Failed to delete old image");
                         }
@@ -472,7 +498,8 @@ public class DatabaseManager {
                 product.put("Name", rs.getString("ProductName"));
                 product.put("Price", rs.getString("ProductPrice"));
                 product.put("Description", rs.getString("ProductDescription"));
-
+                product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
+                product.put("prodid",rs.getString("ProductID"));
                 String retailerID = rs.getString("OwnerID");
 
                 // ✅ Fetch retailer info
@@ -491,6 +518,8 @@ public class DatabaseManager {
                         product.put("RetailerName", rs1.getString("UserName"));
                         product.put("RetailerID", retailerID);
                         product.put("profilePic", rs1.getString("ProfileUrl"));
+                        product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
+                        product.put("prodid",rs.getString("ProductID"));
                     }
                 }
 
@@ -514,13 +543,31 @@ public class DatabaseManager {
             stm.setString(2,UserID);
 
             int row = stm.executeUpdate();
-            System.out.println("OK");
             if (row > 0){
                 return "OK";
             }
 
         }
         return  "!OK";
+    }
+
+    public static String UpdatePhone (String UserID , String NewPhone) throws SQLException{
+        String Query = """
+                UPDATE Accounts_Table SET Phone = ?  WHERE UserID = ?
+                """;
+
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+
+            stm.setString(1,NewPhone);
+            stm.setString(2,UserID);
+
+            int row = stm.executeUpdate();
+            if (row > 0){
+                return "OK";
+            }
+        }
+        return  "!OK";
+
     }
 
     public static String GET_Retailer_Email_Phone(String Retailer_ID) throws SQLException{
@@ -682,6 +729,119 @@ public class DatabaseManager {
         }
         return Result.toString();
     }
+
+    public static String PlaceOrder(JSONObject Data) throws SQLException{
+
+        String findOwnerQuery = """
+                SELECT OwnerID FROM Product_Table WHERE ProductID = ?
+                """;
+        try (PreparedStatement stm = getConnection().prepareStatement(findOwnerQuery)){
+            stm.setString(1,Data.getString("ProductId"));
+
+            ResultSet RS = stm.executeQuery();
+            if (RS.next()){
+                String Owner = RS.getString("OwnerID");
+
+                if (Owner != null){
+                    String insertNewProduct = """
+                            INSERT INTO Order_Table (
+                            OwnerID,
+                            OrderID,
+                            ProductID,
+                            Date_Of_Order,
+                            Time_Of_Order,
+                            Quantity,
+                            Amount_Per_Product,
+                            Total_Amount,
+                            CustomerPhone
+                            )
+                            VALUES(?,?,?,?,?,?,?,?,?)
+                            """;
+
+                    try (PreparedStatement stm1 = getConnection().prepareStatement(insertNewProduct)){
+                        stm1.setString(1,Owner);
+                        stm1.setString(2,SHA256.hash(Data.getString("ProductId") + Data.getInt("Quantity") + LocalDateTime.now()).substring(0,5));
+                        stm1.setString(3,Data.getString("ProductId"));
+                        stm1.setString(4,String.valueOf(LocalDate.now()));
+                        stm1.setString(5,String.valueOf(LocalTime.now()));
+                        stm1.setInt(6,Data.getInt("Quantity"));
+                        stm1.setInt(7,Data.getInt("ProductPrice"));
+                        stm1.setInt(8,(Data.getInt("Quantity") * Data.getInt("ProductPrice")));
+                        stm1.setString(9,Data.getString("CustomerPhone"));
+
+                        stm1.execute();
+
+                        return "OK";
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static String GET_MY_ORDERS(String User_ID) throws SQLException{
+        JSONArray Orders = new JSONArray();
+        int index = 1;
+        String Query = """
+                SELECT * FROM Order_Table WHERE OwnerID = ?
+                """;
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+            stm.setString(1,User_ID);
+            ResultSet RS = stm.executeQuery();
+
+            while (RS.next()){
+                JSONObject Order = new JSONObject();
+                Order.put("index",index++);
+                Order.put("owner",RS.getString("OwnerID"));
+                String ProductID = RS.getString("ProductID");
+                Order.put("productId",ProductID);
+                Order.put("orderId",RS.getString("OrderID"));
+                Order.put("date",RS.getString("Date_Of_Order"));
+                Order.put("time",RS.getString("Time_Of_Order"));
+                Order.put("quantity",RS.getInt("Quantity"));
+                Order.put("amountPerProduct",RS.getInt("Amount_Per_Product"));
+                Order.put("totalAmount",RS.getInt("Total_Amount"));
+                Order.put("customerPhone",RS.getString("CustomerPhone"));
+                Order.put("status", RS.getString("Order_Status"));
+
+
+                //getting product Name
+                String findProductNameQuery = """
+                        SELECT ProductName FROM Product_Table WHERE ProductID = ?
+                        """;
+                try (PreparedStatement stm1 = getConnection().prepareStatement(findProductNameQuery)){
+                    stm1.setString(1,ProductID);
+                    ResultSet rs = stm1.executeQuery();
+
+                    if(rs.next()){
+                        Order.put("productName",rs.getString("ProductName"));
+                    }
+                }
+
+                Orders.put(Order);
+            }
+        }
+        return Orders.toString();
+    }
+
+    public static String SET_ORDER_STATUS(JSONObject Data) throws SQLException{
+
+        String Query = """
+                UPDATE Order_Table SET Order_Status = ? WHERE OrderID = ?
+                """;
+
+        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+            stm.setString(1,Data.getString("status"));
+            stm.setString(2,Data.getString("OrderID"));
+
+            stm.executeUpdate();
+
+            return "OK";
+        }
+    }
+
+    //Database code to fetch Retailer mete data when account is searched on google
 
     /* =========================================================
        CREATE DIRECTORIES
