@@ -1,8 +1,11 @@
 package Database;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.example.bycicon.Fetch_Categories;
 import org.example.bycicon.SHA256;
 import org.example.bycicon.Search_Engine;
+import org.example.bycicon.TryToBuy;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -13,127 +16,139 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import static com.mysql.cj.conf.PropertyKey.PASSWORD;
+
 public class DatabaseManager {
 
+
     private static final String DB_NAME = "B_V1";
-    private static final String URL_NO_DB = "jdbc:mysql://localhost:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
-    private static final String URL_WITH_DB = "jdbc:mysql://localhost:3306/" + DB_NAME + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+
+    private static final String URL_NO_DB =
+            "jdbc:mysql://localhost:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+
+    private static final String URL_WITH_DB =
+            "jdbc:mysql://localhost:3306/" + DB_NAME +
+                    "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+
     private static final String ROOT_USER = "root";
     private static final String ROOT_PASSWORD = "Vrd3115$23";
+
     private static final String APP_USER = "bicycon_admin";
     private static final String APP_PASSWORD = "Vrd3115$23";
-    private static Connection mainConnection;
 
-    /* Application directories */
-    public static File BicyconProfile =
-            new File(System.getProperty("user.home") + File.separator + "Bicycon" + File.separator + "Profile");
-
-    public static File ProductImages =
-            new File(System.getProperty("user.home") + File.separator + "Bicycon" + File.separator + "Products");
-
-    private static File Data =
-            new File(System.getProperty("user.home") + File.separator + "Bicycon" + File.separator + "Data");
-
-
+    private static HikariDataSource dataSource;
 
     /* =========================================================
-       BOOT DATABASE SYSTEM
+       DIRECTORIES
+       ========================================================= */
+    public static File BicyconProfile =
+            new File(System.getProperty("user.home") + "/Bicycon/Profile");
+
+    public static File ProductImages =
+            new File(System.getProperty("user.home") + "/Bicycon/Products");
+
+    public static File Data =
+            new File(System.getProperty("user.home") + "/Bicycon/Data");
+
+    /* =========================================================
+       BOOT SYSTEM
        ========================================================= */
     public static void Boot_DB() throws SQLException {
         Fetch_Categories.fetch_Categories();
         createFileDirectory();
-        create_DB_User();
         createDatabaseIfNotExists();
-        startMainConnection();
+        create_DB_User();
+        initPool();
         createAccountTable();
         CreateProductTable();
         CreatePlaceOrderTable();
         System.out.println("Database Boot Completed");
     }
 
-
-
     /* =========================================================
-       CREATE DATABASE USER
-       ========================================================= */
-    private static void create_DB_User() throws SQLException {
-
-        try (Connection conn = DriverManager.getConnection(URL_NO_DB, ROOT_USER, ROOT_PASSWORD);
-             Statement stm = conn.createStatement()) {
-            String createUser =
-                    "CREATE USER IF NOT EXISTS '" + APP_USER + "'@'localhost' IDENTIFIED BY '" + APP_PASSWORD + "'";
-            stm.executeUpdate(createUser);
-            String grant =
-                    "GRANT ALL PRIVILEGES ON " + DB_NAME + ".* TO '" + APP_USER + "'@'localhost'";
-            stm.executeUpdate(grant);
-            stm.executeUpdate("FLUSH PRIVILEGES");
-            System.out.println("Database user checked/created");
-
-        }
-    }
-
-
-
-    /* =========================================================
-       CREATE DATABASE
+       CREATE DATABASE (SAFE)
        ========================================================= */
     private static void createDatabaseIfNotExists() throws SQLException {
 
         try (Connection conn = DriverManager.getConnection(URL_NO_DB, ROOT_USER, ROOT_PASSWORD);
              Statement stm = conn.createStatement()) {
-            String createDB = "CREATE DATABASE IF NOT EXISTS " + DB_NAME;
-            stm.executeUpdate(createDB);
-            System.out.println("Database checked/created: " + DB_NAME);
+
+            stm.executeUpdate("CREATE DATABASE IF NOT EXISTS " + DB_NAME);
+
+            System.out.println("Database ready: " + DB_NAME);
         }
     }
 
     /* =========================================================
-       START MAIN CONNECTION
+       CREATE DB USER (SAFE)
        ========================================================= */
-    private static void startMainConnection() throws SQLException {
+    private static void create_DB_User() throws SQLException {
 
-        mainConnection = DriverManager.getConnection(
-                URL_WITH_DB,
-                APP_USER,
-                APP_PASSWORD
-        );
+        try (Connection conn = DriverManager.getConnection(URL_NO_DB, ROOT_USER, ROOT_PASSWORD);
+             Statement stm = conn.createStatement()) {
 
-        System.out.println("Connected to database: " + DB_NAME);
-    }
+            String createUser =
+                    "CREATE USER IF NOT EXISTS '" + APP_USER + "'@'localhost' IDENTIFIED BY '" + APP_PASSWORD + "'";
 
+            String grant =
+                    "GRANT ALL PRIVILEGES ON " + DB_NAME + ".* TO '" + APP_USER + "'@'localhost'";
 
+            stm.executeUpdate(createUser);
+            stm.executeUpdate(grant);
+            stm.executeUpdate("FLUSH PRIVILEGES");
 
-    /* =========================================================
-       CLOSE CONNECTION
-       ========================================================= */
-    public static void close() throws SQLException {
-        if (mainConnection != null && !mainConnection.isClosed()) {
-            mainConnection.close();
+            System.out.println("Database user ready");
         }
     }
 
+    /* =========================================================
+       INIT CONNECTION POOL (MAIN SYSTEM)
+       ========================================================= */
+    public static void initPool() {
 
+        HikariConfig config = new HikariConfig();
+
+        config.setJdbcUrl(URL_WITH_DB);
+        config.setUsername(APP_USER);
+        config.setPassword(APP_PASSWORD);
+
+        // Pool tuning
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(2);
+        config.setIdleTimeout(30000);
+        config.setConnectionTimeout(10000);
+        config.setMaxLifetime(1800000);
+
+        dataSource = new HikariDataSource(config);
+
+        System.out.println("Connection pool started");
+    }
 
     /* =========================================================
-       EXECUTE SQL
+       GET CONNECTION (POOL SAFE)
+       ========================================================= */
+    public static Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
+
+    /* =========================================================
+       EXECUTE SQL (SAFE)
        ========================================================= */
     public static void executeSQL(String sql) throws SQLException {
-        try (Statement stm = mainConnection.createStatement()) {
+        try (Connection conn = getConnection();
+             Statement stm = conn.createStatement()) {
             stm.execute(sql);
         }
     }
 
-
-
     /* =========================================================
-       GET CONNECTION
+       SHUTDOWN
        ========================================================= */
-    public static Connection getConnection() {
-        return mainConnection;
+    public static void shutdown() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
     }
-
-
-
     /* =========================================================
        CREATE ACCOUNT TABLE
        ========================================================= */
@@ -172,7 +187,7 @@ public class DatabaseManager {
                   ProductDescription VARCHAR(2000),
                   ProductImageUrl VARCHAR(200),
                   ProductTimeStamp VARCHAR(200),
-                  TryToBuyCount DOUBLE
+                  TryToBuyCount INT
                 )
                 """;
 
@@ -198,6 +213,12 @@ public class DatabaseManager {
         executeSQL(Query);
     }
 
+    private static void SearchHistory(){
+        String Query = """
+                
+                """;
+    }
+
     /* =========================================================
        CONFIRM LOGIN
        ========================================================= */
@@ -210,7 +231,8 @@ public class DatabaseManager {
             WHERE UserID = ?
             """;
 
-        try (PreparedStatement ps = getConnection().prepareStatement(QUERY)) {
+        try (Connection conn = getConnection();
+                PreparedStatement ps = conn.prepareStatement(QUERY)) {
             ps.setString(1, USER);
             ResultSet rst = ps.executeQuery();
             if (rst.next()) {
@@ -242,7 +264,8 @@ public class DatabaseManager {
                 VALUES (?, ?, ?, ?, ?)
                 """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(query)) {
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(query)) {
 
             stm.setString(1, data.getString("User-ID"));
             stm.setString(2, data.getString("User-Name"));
@@ -262,7 +285,8 @@ public class DatabaseManager {
         WHERE UserID = ?
     """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(query)) {
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(query)) {
 
             stm.setString(1, "YES"); // mark account complete
             stm.setString(2, data.getString("Phone"));
@@ -286,7 +310,8 @@ public class DatabaseManager {
         String query = """
                 UPDATE Accounts_Table SET ProfileUrl = ? WHERE UserID = ?
                 """;
-        try (PreparedStatement stm = getConnection().prepareStatement(query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(query)){
             stm.setString(1, url);
             stm.setString(2,UserID);
 
@@ -301,36 +326,79 @@ public class DatabaseManager {
         return null;
     }
 
-    public static String StoreNewProduct(JSONObject Data) throws SQLException {
+    public static String StoreNewProduct(JSONObject data) throws SQLException {
 
+        Connection conn = getConnection();
 
-        String Query = """
-                INSERT INTO Product_Table (
-                OwnerID,
-                ProductID,
-                ProductName,
-                ProductPrice,
-                ProductCategory,
-                ProductDescription,
-                ProductImageUrl,
-                ProductTimeStamp) 
-                VALUES (?,?,?,?,?,?,?,?)
-                """;
+        String owner = data.getString("owner");
 
-        try(PreparedStatement statement = getConnection().prepareStatement(Query)){
-            statement.setString(1,Data.getString("owner"));
-            statement.setString(2,Data.getString("ProdID"));
-            statement.setString(3,Data.getString("name"));
-            statement.setInt(4,Data.getInt("price"));
-            statement.setString(5,Data.getString("Category"));
-            statement.setString(6,Data.getString("Description"));
-            statement.setString(7,Data.getString("ProdUrl"));
-            statement.setString(8,String.valueOf(LocalDateTime.now()));
+        String insertQuery = """
+        INSERT INTO Product_Table (
+            OwnerID,
+            ProductID,
+            ProductName,
+            ProductPrice,
+            ProductCategory,
+            ProductDescription,
+            ProductImageUrl,
+            ProductTimeStamp,
+            TryToBuyCount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    """;
 
-            statement.executeUpdate();
+        try {
+            conn.setAutoCommit(false);
+
+            // 🔒 lock retailer
+            try (PreparedStatement lockStmt = conn.prepareStatement(
+                    "SELECT UserID FROM Accounts_Table WHERE UserID = ? FOR UPDATE"
+            )) {
+                lockStmt.setString(1, owner);
+                lockStmt.executeQuery();
+            }
+
+            // 🔍 count products
+            int count;
+            try (PreparedStatement countStmt = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM Product_Table WHERE OwnerID = ?"
+            )) {
+                countStmt.setString(1, owner);
+                ResultSet rs = countStmt.executeQuery();
+
+                rs.next();
+                count = rs.getInt(1);
+            }
+
+            if (count >= 20) {
+                conn.rollback();
+                return "LIMIT_REACHED";
+            }
+
+            // ✅ insert product (ONLY ONCE)
+            try (PreparedStatement stm = conn.prepareStatement(insertQuery)) {
+
+                stm.setString(1, owner);
+                stm.setString(2, data.getString("ProdID"));
+                stm.setString(3, data.getString("name"));
+                stm.setInt(4, data.getInt("price"));
+                stm.setString(5, data.getString("Category"));
+                stm.setString(6, data.getString("Description"));
+                stm.setString(7, data.getString("ProdUrl"));
+                stm.setString(8, String.valueOf(LocalDateTime.now()));
+
+                stm.executeUpdate();
+            }
+
+            conn.commit();
+            return "OK";
+
+        } catch (Exception e) {
+            conn.rollback();
+            throw new RuntimeException(e);
+
+        } finally {
+            conn.setAutoCommit(true);
         }
-
-        return "OK";
     }
 
     // GET ALL PRODUCT OF A RETAILER
@@ -348,7 +416,8 @@ public class DatabaseManager {
         WHERE OwnerID = ?
     """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(query)) {
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(query)) {
 
             stm.setString(1, OwnerID);
             ResultSet rs = stm.executeQuery();
@@ -378,7 +447,8 @@ public class DatabaseManager {
         String selectQuery = "SELECT ProfileUrl FROM Accounts_Table WHERE UserID = ?";
         String updateQuery = "UPDATE Accounts_Table SET ProfileUrl = ? WHERE UserID = ?";
 
-        try (PreparedStatement stm = getConnection().prepareStatement(selectQuery)) {
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(selectQuery)) {
             stm.setString(1, userID);
             ResultSet rs = stm.executeQuery();
 
@@ -397,7 +467,8 @@ public class DatabaseManager {
                 }
 
                 // 🔹 Always update DB (don’t depend on file delete)
-                try (PreparedStatement stm2 = getConnection().prepareStatement(updateQuery)) {
+                try (Connection conn1 = getConnection();
+                        PreparedStatement stm2 = conn1.prepareStatement(updateQuery)) {
                     stm2.setString(1, imageName);
                     stm2.setString(2, userID);
 
@@ -422,7 +493,8 @@ public class DatabaseManager {
             WHERE UserID = ?
             """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(query)) {
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(query)) {
 
             stm.setString(1, userID);
             ResultSet rs = stm.executeQuery();
@@ -451,12 +523,14 @@ public class DatabaseManager {
 
         JSONArray products = new JSONArray();
 
-        // ✅ Get categories safely from JSONObject
+        // ✅ Validate category
         JSONArray categoriesArray = Fetch_Categories.Categories.optJSONArray("Product_Categories");
-
+        boolean isAll = key.equalsIgnoreCase("All");
         boolean found = false;
 
-        if (categoriesArray != null) {
+        if (isAll) {
+            found = true;
+        } else if (categoriesArray != null) {
             for (int i = 0; i < categoriesArray.length(); i++) {
                 if (categoriesArray.getString(i).equalsIgnoreCase(key)) {
                     found = true;
@@ -465,25 +539,77 @@ public class DatabaseManager {
             }
         }
 
-        // ❌ If category not found → return empty result
         if (!found) {
-            System.out.println("Invalid category: " + key);
+            System.err.println("Invalid category: " + key);
             return products.toString();
         }
 
-        // ✅ Build query
-        String query;
-        boolean isAll = key.equalsIgnoreCase("All");
+        // ✅ Optimized query (JOIN + GROUP + SCORE)
+        String query = isAll
+                ? """
+        SELECT 
+            p.ProductID,
+            p.ProductName,
+            p.ProductPrice,
+            p.ProductDescription,
+            p.ProductImageUrl,
+            p.ProductTimeStamp,
+            p.TryToBuyCount,
+            p.OwnerID,
 
-        if (isAll) {
-            query = "SELECT * FROM Product_Table";
-        } else {
-            query = "SELECT * FROM Product_Table WHERE ProductCategory = ?";
-        }
+            a.UserName,
+            a.ProfileUrl,
 
-        try (PreparedStatement stm = getConnection().prepareStatement(query)) {
+            COALESCE(o.BuyCount, 0) AS BuyCount
 
-            // ✅ Set parameter only if needed
+        FROM Product_Table p
+
+        LEFT JOIN (
+            SELECT ProductID, COUNT(*) AS BuyCount
+            FROM Order_Table
+            GROUP BY ProductID
+        ) o ON p.ProductID = o.ProductID
+
+        LEFT JOIN Accounts_Table a
+            ON p.OwnerID = a.UserID
+
+        ORDER BY ((COALESCE(o.BuyCount, 0) * 3) + p.TryToBuyCount) DESC
+        """
+                : """
+        SELECT 
+            p.ProductID,
+            p.ProductName,
+            p.ProductPrice,
+            p.ProductDescription,
+            p.ProductImageUrl,
+            p.ProductTimeStamp,
+            p.TryToBuyCount,
+            p.OwnerID,
+
+            a.UserName,
+            a.ProfileUrl,
+
+            COALESCE(o.BuyCount, 0) AS BuyCount
+
+        FROM Product_Table p
+
+        LEFT JOIN (
+            SELECT ProductID, COUNT(*) AS BuyCount
+            FROM Order_Table
+            GROUP BY ProductID
+        ) o ON p.ProductID = o.ProductID
+
+        LEFT JOIN Accounts_Table a
+            ON p.OwnerID = a.UserID
+
+        WHERE p.ProductCategory = ?
+
+        ORDER BY ((COALESCE(o.BuyCount, 0) * 3) + p.TryToBuyCount) DESC
+        """;
+
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(query)) {
+
             if (!isAll) {
                 stm.setString(1, key);
             }
@@ -494,36 +620,34 @@ public class DatabaseManager {
 
                 JSONObject product = new JSONObject();
 
+                // 🔹 Basic product info
                 product.put("ImageUrl", rs.getString("ProductImageUrl"));
                 product.put("Name", rs.getString("ProductName"));
-                product.put("Price", rs.getString("ProductPrice"));
+                product.put("Price", rs.getInt("ProductPrice"));
                 product.put("Description", rs.getString("ProductDescription"));
-                product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
-                product.put("prodid",rs.getString("ProductID"));
-                String retailerID = rs.getString("OwnerID");
+                product.put("prodID", rs.getString("ProductID"));
 
-                // ✅ Fetch retailer info
-                String retailerQuery = """
-                SELECT UserName, ProfileUrl
-                FROM Accounts_Table
-                WHERE UserID = ?
-            """;
+                // 🔹 Time formatting
+                product.put("postedAt",
+                        Search_Engine.PostedAt(
+                                LocalDateTime.parse(rs.getString("ProductTimeStamp"))
+                        )
+                );
 
-                try (PreparedStatement stm1 = getConnection().prepareStatement(retailerQuery)) {
+                // 🔹 Retailer info (from JOIN)
+                product.put("RetailerName", rs.getString("UserName"));
+                product.put("RetailerID", rs.getString("OwnerID"));
+                product.put("profilePic", rs.getString("ProfileUrl"));
 
-                    stm1.setString(1, retailerID);
-                    ResultSet rs1 = stm1.executeQuery();
+                // 🔹 Scoring system
+                int buyCount = rs.getInt("BuyCount");
+                int tryCount = rs.getInt("TryToBuyCount");
+                int score = (buyCount * 3) + tryCount;
 
-                    if (rs1.next()) {
-                        product.put("RetailerName", rs1.getString("UserName"));
-                        product.put("RetailerID", retailerID);
-                        product.put("profilePic", rs1.getString("ProfileUrl"));
-                        product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
-                        product.put("prodid",rs.getString("ProductID"));
-                    }
-                }
+                product.put("BuyCount", buyCount);
+                product.put("TryToBuyCount", tryCount);
+                product.put("Score", score);
 
-                // ✅ Add product to array
                 products.put(product);
             }
         }
@@ -537,7 +661,8 @@ public class DatabaseManager {
                 UPDATE Accounts_Table SET Email = ?  WHERE UserID = ?
                 """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
 
             stm.setString(1,NewEmail);
             stm.setString(2,UserID);
@@ -556,7 +681,8 @@ public class DatabaseManager {
                 UPDATE Accounts_Table SET Phone = ?  WHERE UserID = ?
                 """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
 
             stm.setString(1,NewPhone);
             stm.setString(2,UserID);
@@ -576,7 +702,8 @@ public class DatabaseManager {
                 SELECT Email,Phone FROM Accounts_Table WHERE UserID = ? 
                 """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,Retailer_ID);
 
             ResultSet RS = stm.executeQuery();
@@ -592,7 +719,8 @@ public class DatabaseManager {
     public static String Delete_My_Product (String Product_ID) throws SQLException{
         String query = "SELECT ProductImageUrl FROM Product_Table WHERE ProductID = ?";
 
-        try (PreparedStatement stm1 = getConnection().prepareStatement(query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm1 = conn.prepareStatement(query)){
             stm1.setString(1,Product_ID);
             ResultSet rs = stm1.executeQuery();
             if (rs.next()){
@@ -615,7 +743,8 @@ public class DatabaseManager {
         String Query = """
                 DELETE FROM Product_Table WHERE ProductID = ?
                 """;
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,Product_ID);
             if(stm.executeUpdate() > 0){
                 return "OK";
@@ -630,7 +759,8 @@ public class DatabaseManager {
         String Query = """
                 SELECT ProductCategory FROM Product_Table WHERE ProductID = ?
                 """;
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,Product_ID);
             ResultSet RS = stm.executeQuery();
             if (RS.next()){
@@ -648,7 +778,8 @@ public class DatabaseManager {
         WHERE ProductID = ?
         """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(QUERY)) {
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(QUERY)) {
             stm.setString(1, Data.getString("NewName"));
             stm.setDouble(2, Data.getDouble("NewPrice")); // if your column is numeric
             stm.setString(3, Data.getString("NewDescription"));
@@ -675,7 +806,8 @@ public class DatabaseManager {
                  WHERE ProductID = ?
                  """;
 
-         try (PreparedStatement stm = getConnection().prepareStatement(select_image_Query)){
+         try (Connection conn = getConnection();
+                 PreparedStatement stm = conn.prepareStatement(select_image_Query)){
              stm.setString(1,Data.getString("ProductID"));
              ResultSet RS = stm.executeQuery();
 
@@ -696,7 +828,8 @@ public class DatabaseManager {
                  }
 
                  //UPDATE DB
-                 try (PreparedStatement stm1 = getConnection().prepareStatement(update_Query)){
+                 try (Connection conn1 = getConnection();
+                         PreparedStatement stm1 = conn1.prepareStatement(update_Query)){
                      stm1.setString(1,Data.getString("NewName"));
                      stm1.setString(2,Data.getString("NewPrice"));
                      stm1.setString(3,Data.getString("NewDescription"));
@@ -718,7 +851,8 @@ public class DatabaseManager {
         String Query = """
                 SELECT Email,Phone,ProfileUrl FROM Accounts_Table WHERE UserID = ? 
                 """;
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,Retailer_ID);
             ResultSet RS = stm.executeQuery();;
             if (RS.next()){
@@ -735,8 +869,9 @@ public class DatabaseManager {
         String findOwnerQuery = """
                 SELECT OwnerID FROM Product_Table WHERE ProductID = ?
                 """;
-        try (PreparedStatement stm = getConnection().prepareStatement(findOwnerQuery)){
-            stm.setString(1,Data.getString("ProductId"));
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(findOwnerQuery)){
+            stm.setString(1, Data.getString("ProductId"));
 
             ResultSet RS = stm.executeQuery();
             if (RS.next()){
@@ -786,7 +921,8 @@ public class DatabaseManager {
         String Query = """
                 SELECT * FROM Order_Table WHERE OwnerID = ?
                 """;
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,User_ID);
             ResultSet RS = stm.executeQuery();
 
@@ -810,7 +946,8 @@ public class DatabaseManager {
                 String findProductNameQuery = """
                         SELECT ProductName FROM Product_Table WHERE ProductID = ?
                         """;
-                try (PreparedStatement stm1 = getConnection().prepareStatement(findProductNameQuery)){
+                try (Connection conn1 = getConnection();
+                        PreparedStatement stm1 = conn1.prepareStatement(findProductNameQuery)){
                     stm1.setString(1,ProductID);
                     ResultSet rs = stm1.executeQuery();
 
@@ -831,7 +968,8 @@ public class DatabaseManager {
                 UPDATE Order_Table SET Order_Status = ? WHERE OrderID = ?
                 """;
 
-        try (PreparedStatement stm = getConnection().prepareStatement(Query)){
+        try (Connection conn = getConnection();
+                PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,Data.getString("status"));
             stm.setString(2,Data.getString("OrderID"));
 

@@ -20,8 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
 
 @CrossOrigin(origins = "*")
@@ -172,7 +171,9 @@ public class Processor {
 
                 case "GET-RETAILER-EMAIL & PHONE" ->{
                     String Retailer_ID = DATA.getString("RetailerID");
+                    String ProductID = DATA.getString("productId");
                     String Result = DatabaseManager.GET_Retailer_Email_Phone(Retailer_ID);
+                    TryToBuy.addToProducts(ProductID);
                     if(Result != null){
                         return Result;
                     }
@@ -227,11 +228,16 @@ public class Processor {
 
                 case "SET-ORDER-STATUS"->{
                     String Result = DatabaseManager.SET_ORDER_STATUS(DATA);
-                    JSONObject Resultj = new JSONObject();
+                    JSONObject ResultJ = new JSONObject();
                     if (Result.equals("OK")){
-                        Resultj.put("status","OK");
+                        ResultJ.put("status","OK");
                     }
-                    return Resultj.toString();
+                    return ResultJ.toString();
+                }
+
+                case "SEARCH"->{
+                    String input = DATA.getString("input");
+                    return Search_Engine.Search(input);
                 }
 
                 case "PING" -> {
@@ -275,7 +281,7 @@ public class Processor {
     }
 
     @PostMapping("/file")
-    private String NewProduct(@RequestParam("file")MultipartFile File , @RequestParam("Data")String data) throws ExecutionException, InterruptedException {
+    private String NewProduct(@RequestParam("file")MultipartFile File , @RequestParam("Data")String data) throws ExecutionException, InterruptedException{
        Future<String> result = threadPool.submit(()->{
             JSONObject Data = new JSONObject(data);
             String INSTRUCTION = Data.getString("INSTRUCTION");

@@ -11,6 +11,7 @@ public class ByciconApplication {
     public static void main(String[] args) {
         try {
             DatabaseManager.Boot_DB();
+            TryToBuy.start();
             System.out.println("Manual DB connection successful!");
         } catch (SQLException e) {
             e.printStackTrace();
