@@ -16,27 +16,32 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-import static com.mysql.cj.conf.PropertyKey.PASSWORD;
-
 public class DatabaseManager {
 
-
+    /* =========================================================
+       DYNAMIC CONSTANTS
+       ========================================================= */
+// 1. Get values from Environment (Cloud) or use your Local defaults
     private static final String DB_NAME = "B_V1";
 
-    private static final String URL_NO_DB =
-            "jdbc:mysql://localhost:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    private static final String DB_HOST = System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "localhost";
+    private static final String DB_PORT = System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "3306";
 
-    private static final String URL_WITH_DB =
-            "jdbc:mysql://localhost:3306/" + DB_NAME +
-                    "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    // The "Main" credentials the app will use
+    private static final String APP_USER = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "bicycon_admin";
+    private static final String APP_PASSWORD = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "Vrd3115$23";
 
+    // The "Root" credentials (ONLY used locally)
     private static final String ROOT_USER = "root";
     private static final String ROOT_PASSWORD = "Vrd3115$23";
 
-    private static final String APP_USER = "bicycon_admin";
-    private static final String APP_PASSWORD = "Vrd3115$23";
+    // The JDBC URLs
+    private static final String URL_NO_DB = "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 
-    private static HikariDataSource dataSource;
+    private static final String URL_WITH_DB = System.getenv("DB_URL") != null
+            ? System.getenv("DB_URL")
+            : "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+
 
     /* =========================================================
        DIRECTORIES
@@ -56,72 +61,86 @@ public class DatabaseManager {
     public static void Boot_DB() throws SQLException {
         Fetch_Categories.fetch_Categories();
         createFileDirectory();
-        createDatabaseIfNotExists();
-        create_DB_User();
+
+        // ONLY attempt to create DB/Users if we are running locally
+        if (System.getenv("DB_URL") == null) {
+            System.out.println("Local environment detected. Running setup...");
+            createDatabaseIfNotExists();
+            create_DB_User();
+        } else {
+            System.out.println("Cloud environment detected. Skipping Root setup.");
+        }
+
         initPool();
+
+        // These are safe to run everywhere because they use "IF NOT EXISTS"
         createAccountTable();
         CreateProductTable();
         CreatePlaceOrderTable();
+
         System.out.println("Database Boot Completed");
     }
 
+
     /* =========================================================
-       CREATE DATABASE (SAFE)
-       ========================================================= */
+   CREATE DATABASE (SAFE)
+   ========================================================= */
     private static void createDatabaseIfNotExists() throws SQLException {
+        // If DB_URL exists, we are on Render. STOP HERE.
+        if (System.getenv("DB_URL") != null) return;
 
         try (Connection conn = DriverManager.getConnection(URL_NO_DB, ROOT_USER, ROOT_PASSWORD);
              Statement stm = conn.createStatement()) {
-
             stm.executeUpdate("CREATE DATABASE IF NOT EXISTS " + DB_NAME);
-
             System.out.println("Database ready: " + DB_NAME);
         }
     }
 
-    /* =========================================================
-       CREATE DB USER (SAFE)
-       ========================================================= */
     private static void create_DB_User() throws SQLException {
+        // If DB_URL exists, we are on Render. STOP HERE.
+        if (System.getenv("DB_URL") != null) return;
 
         try (Connection conn = DriverManager.getConnection(URL_NO_DB, ROOT_USER, ROOT_PASSWORD);
              Statement stm = conn.createStatement()) {
 
-            String createUser =
-                    "CREATE USER IF NOT EXISTS '" + APP_USER + "'@'localhost' IDENTIFIED BY '" + APP_PASSWORD + "'";
-
-            String grant =
-                    "GRANT ALL PRIVILEGES ON " + DB_NAME + ".* TO '" + APP_USER + "'@'localhost'";
+            String createUser = "CREATE USER IF NOT EXISTS '" + APP_USER + "'@'localhost' IDENTIFIED BY '" + APP_PASSWORD + "'";
+            String grant = "GRANT ALL PRIVILEGES ON " + DB_NAME + ".* TO '" + APP_USER + "'@'localhost'";
 
             stm.executeUpdate(createUser);
             stm.executeUpdate(grant);
             stm.executeUpdate("FLUSH PRIVILEGES");
-
-            System.out.println("Database user ready");
+            System.out.println("Local user created.");
         }
     }
 
     /* =========================================================
        INIT CONNECTION POOL (MAIN SYSTEM)
        ========================================================= */
-    public static void initPool() {
+    private static HikariDataSource dataSource;
 
+    public static void initPool() {
+        // 1. Create the configuration object
         HikariConfig config = new HikariConfig();
 
+        // 2. Set the credentials using our Dynamic Variables
+        // These will automatically use Render values if present, or Localhost if not.
         config.setJdbcUrl(URL_WITH_DB);
         config.setUsername(APP_USER);
         config.setPassword(APP_PASSWORD);
 
-        // Pool tuning
+        // 3. Pool Tuning (Kept exactly as you had it)
         config.setMaximumPoolSize(10);
         config.setMinimumIdle(2);
         config.setIdleTimeout(30000);
         config.setConnectionTimeout(10000);
         config.setMaxLifetime(1800000);
 
+        // 4. Initialize the DataSource
         dataSource = new HikariDataSource(config);
 
-        System.out.println("Connection pool started");
+        // 5. Success Message
+        System.out.println("Connection pool started successfully.");
+        System.out.println("Connected to: " + URL_WITH_DB);
     }
 
     /* =========================================================
