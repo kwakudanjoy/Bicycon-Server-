@@ -1,4 +1,13 @@
 const Loading = document.querySelector("#loading-overlay");
+const Main = document.querySelector(".main");
+const Cart_Overlay = document.querySelector(".cart-overlay");
+const Payment_Overlay = document.querySelector(".payment-overlay");
+const NoProducts = document.querySelector(".no-found-products");
+const OrderSuccess = document.querySelector(".success-overlay");
+const Call = document.querySelector("#call");
+const PhoneNumber = document.querySelector(".phone");
+let product_ID = null;
+
 
 // backend base URL
 const IPAddress = "http://localhost:8080";
@@ -19,7 +28,7 @@ function setRetailerProfile() {
 
 // ================= PRODUCTS =================
 async function GettingAllProducts() {
-   
+
     let RetailerID = document.querySelector(".id").innerText.trim();
 
     let Payload = {
@@ -30,22 +39,20 @@ async function GettingAllProducts() {
     Loading.style.display = "flex";
 
     let Account_Products = await fetchData(Payload);
-    
+
     if (Array.isArray(Account_Products) && Account_Products.length !== 0) {
 
         document.querySelector("main").innerHTML = "";
-
         const fragment = document.createDocumentFragment();
-
         Account_Products.forEach(product => {
-
             const ProductCard = document.createElement("div");
             ProductCard.className = "a-product";
+            ProductCard.dataset.productId = product.Id;
 
             ProductCard.innerHTML = `
-                <img src="${IPAddress}/products/${product.Url}" alt="">
+                <img src="${IPAddress}/products/${product.Url}" alt="" class="prod-img">
                 <p class="a-prod-name">${product.name}</p>
-                <p class="a-prod-price">GHC : ${product.price}</p>
+                <p class="a-prod-price">${product.currencyCode}: ${product.price}</p>
                 <p class="a-prod-description">${product.description}</p>
                 <div class="prouduct-cart-bottom">
                     <p class="posted-at">Posted ${product.postedAt}</p>
@@ -57,6 +64,8 @@ async function GettingAllProducts() {
         });
 
         document.querySelector("main").appendChild(fragment);
+    }else{
+        NoProducts.style.display = "flex";
     }
 
     Loading.style.display = "none";
@@ -65,6 +74,122 @@ async function GettingAllProducts() {
 // ================= INIT =================
 setRetailerProfile(Profile);
 GettingAllProducts();
+
+Call.addEventListener("click",()=>{
+    let phoneNumber = PhoneNumber.textContent;
+    window.location.href = `tel:${phoneNumber}`;
+});
+
+// ====== Showing Payment and order cart
+Main.addEventListener("click", async e => {
+    if (e.target.closest(".order")) {
+
+        const productCard = e.target.closest(".a-product");
+        product_ID = productCard.dataset.productId;
+        const productName = productCard.querySelector(".a-prod-name").textContent;
+        const productPrice = productCard.querySelector(".a-prod-price").textContent;
+        const productDiscripion = productCard.querySelector(".a-prod-description").textContent;
+        const retailerName = document.querySelector(".name").innerText.trim();
+        const restailerID = document.querySelector(".id").innerText.trim();
+        const retailerEmail = document.querySelector(".email").innerText.trim();
+        const retailerPhone = document.querySelector(".phone").innerText.trim();
+        const productImage = productCard.querySelector(".prod-img").src;
+        const retailer_Profile_Pic = document.querySelector(".user-pic > img").src;
+
+        Cart_Overlay.querySelector(".cart-retailer__image").src = retailer_Profile_Pic;
+        Cart_Overlay.querySelector(".cart-product__image").src = productImage;
+        Cart_Overlay.querySelector(".cart-product__name").textContent = productName;
+        Cart_Overlay.querySelector(".cart-product__price").textContent = productPrice;
+        Cart_Overlay.querySelector(".cart-product__description").textContent = productDiscripion;
+        Cart_Overlay.querySelector(".cart-retailer__name").textContent = retailerName;
+        Cart_Overlay.querySelector(".cart-retailer__email").textContent = retailerEmail;
+        Cart_Overlay.querySelector(".cart-retailer__phone").textContent = retailerPhone;
+        Cart_Overlay.querySelector(".total-amount").textContent = productPrice;
+
+        let unitePrice = parseFloat(productPrice.replace(/[^\d.]/g, ""));
+        let counryCode = productPrice.split(":")[0].trim();
+        let total = 0;
+
+        // ============= cancelling Crat =========
+        Cart_Overlay.querySelector(".cart-close-btn").onclick = () => {
+            Cart_Overlay.style.display = "none";
+        }
+
+        Cart_Overlay.querySelector(".minus").onclick = () => {
+            let productQuatity = Cart_Overlay.querySelector(".qty-number").textContent.trim();
+            if (productQuatity > 1) {
+                productQuatity--;
+
+                total = productQuatity * unitePrice;
+                Cart_Overlay.querySelector(".total-amount").textContent = `${counryCode} : ${total}`;
+                Cart_Overlay.querySelector(".qty-number").textContent = productQuatity;
+            }
+
+        }
+
+        //======== executing plus btn =========
+        Cart_Overlay.querySelector(".plus").onclick = () => {
+            let productQuatity = Cart_Overlay.querySelector(".qty-number").textContent.trim();
+            productQuatity++;
+            total = productQuatity * unitePrice;
+            Cart_Overlay.querySelector(".total-amount").textContent = `${counryCode}: ${total}`;
+            Cart_Overlay.querySelector(".qty-number").textContent = productQuatity;
+        }
+
+        Cart_Overlay.querySelector(".cart-buy-btn").onclick = () => {
+            Cart_Overlay.style.display = "none";
+            Payment_Overlay.style.display = "flex";
+            Payment_Overlay.querySelector(".customer-number-input").value = null;
+        }
+
+        Cart_Overlay.style.display = "flex";
+
+    }
+});
+
+Payment_Overlay.querySelector(".cancel-purchase").addEventListener("click",() => {
+    Cart_Overlay.style.display = "flex";
+    Payment_Overlay.style.display = "none";
+});
+
+Payment_Overlay.querySelector(".purchase-btn").addEventListener("click", async () => {
+    if (!iti.isValidNumber()) {
+        alert("Please enter a valid phone number");
+        return;
+    }
+
+    let Phone = iti.getNumber();
+    let newProductPrice = parseFloat(Cart_Overlay.querySelector(".cart-product__price").textContent.replace(/[^\d.]/g, ""));
+    let Payload = {
+        INSTRUCTION: "PLACE-ORDER",
+        ProductId: product_ID,
+        Quantity: Cart_Overlay.querySelector(".qty-number").textContent,
+        CustomerPhone: Phone,
+        ProductName: Cart_Overlay.querySelector(".cart-product__name"),
+        ProductPrice: newProductPrice
+    }
+
+    try {
+        Loading.style.display = "flex";
+        let Result = await fetchData(Payload);
+        Loading.style.display = "none";
+
+        if (Result && Result.status === "OK") {
+            Payment_Overlay.style.display = "none"
+            OrderSuccess.querySelector("#display-order-id").textContent ="#" + Result["orderID"];
+            OrderSuccess.style.display = "flex";
+        }
+    } catch (err) {
+        Loading.style.display = "none";
+        alert("Network error");
+        console.error(err);
+    }
+});
+
+OrderSuccess.querySelector(".success-close-btn").addEventListener("click",()=>{
+    OrderSuccess.style.display  = "none";
+});
+
 
 // ================= FETCH =================
 async function fetchData(payload) {
@@ -86,3 +211,16 @@ async function fetchData(payload) {
         return null;
     }
 }
+
+const iti = window.intlTelInput(Payment_Overlay.querySelector(".customer-number-input"), {
+    initialCountry: "auto",
+    geoIpLookup: function (callback) {
+        fetch("https://ipapi.co/json")
+            .then(res => res.json())
+            .then(data => callback(data.country_code))
+            .catch(() => callback("us"));
+    },
+    separateDialCode: true,
+    useFullscreenPopup: false,
+    utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.5/build/js/utils.js"
+});

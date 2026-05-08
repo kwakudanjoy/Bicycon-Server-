@@ -40,7 +40,6 @@ public class TryToBuy {
 
                 if (batchSize > 0) {
                     statement.executeBatch();
-                    System.out.println("Batch executed: " + batchSize);
                 }
 
             } catch (SQLException e) {

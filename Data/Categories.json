@@ -1,0 +1,27 @@
+{
+    "Product_Categories" : [
+        "All" ,
+        "Food",
+        "Book",
+        "Women" ,
+        "Men" , 
+        "Home" ,
+        "Jewelry",
+        "Sports",
+        "Industrial",
+        "Kid",
+        "Electronic",
+        "Bags",
+        "Crafts",
+        "Beauty",
+        "Toy",
+        "Automotive",
+        "Office",
+        "Baby",
+        "Health",
+        "Household",
+        "Pet",
+        "Musical",
+        "Appliance"
+    ]
+}

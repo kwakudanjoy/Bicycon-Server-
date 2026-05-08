@@ -75,9 +75,7 @@ public class Processor {
 
                     String userID = DATA.getString("SignInId");
                     String password = DATA.getString("SignInPassword");
-
                     String loginResult = DatabaseManager.Confirm_Logins(userID, password);
-
                     JSONObject result1;
 
                     switch (loginResult) {
@@ -106,19 +104,13 @@ public class Processor {
                 case "COMPLETE-ACCOUNT"->{
                     DATA.remove("INSTRUCTION");
                     if (DatabaseManager.CompleteAccount(DATA).equals("OK")){
-                        JSONObject RESULT = new JSONObject();
-                        RESULT.put("status", "OK");
-                        RESULT.put("Email" , DATA.getString("Email"));
-                        RESULT.put("Phone",DATA.getString("Phone"));
-                        return RESULT.toString();
-
-
-                    }else {
-                        JSONObject PING = new JSONObject();
-                        PING.put("status", "!OK");
-                        return PING.toString();
-
+                        DATA.remove("UserId");
+                        DATA.remove("CountryCode");
+                        DATA.put("status", "OK");
                     }
+                    System.out.println(DATA);
+                    return DATA.toString();
+
                 }
 
                 case "GET-CATEGORIES" ->{
@@ -215,8 +207,10 @@ public class Processor {
 
                 case "PLACE-ORDER"->{
                     JSONObject Result = new JSONObject();
+                    String ProdID = SHA256.hash(DATA.getString("ProductId") + DATA.getInt("Quantity") + LocalDateTime.now()).substring(0,5);
                     if (Objects.equals(DatabaseManager.PlaceOrder(DATA), "OK")){
                        Result.put("status","OK");
+                       Result.put("orderID",ProdID);
                     }
                     return Result.toString();
                 }
@@ -233,6 +227,13 @@ public class Processor {
                         ResultJ.put("status","OK");
                     }
                     return ResultJ.toString();
+                }
+
+                case "GET-COUNTRY-CURRENCY-CODE"->{
+                    JSONObject Result = new JSONObject();
+                    String currencyCode = Fetch_Categories.CountryToCurrencyMap.getString(DATA.getString("countryISO"));
+                    Result.put("currencyCode",currencyCode);
+                    return Result.toString();
                 }
 
                 case "SEARCH"->{

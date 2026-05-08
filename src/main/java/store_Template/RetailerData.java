@@ -2,6 +2,7 @@ package store_Template;
 
 import Database.DatabaseManager;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,7 +20,8 @@ public class RetailerData {
                 SELECT * FROM Accounts_Table WHERE UserID = ?
                 """;
 
-        try (PreparedStatement stm = DatabaseManager.getConnection().prepareStatement(DB_Query)) {
+        try (Connection conn = DatabaseManager.getConnection();
+                PreparedStatement stm = conn.prepareStatement(DB_Query)) {
             stm.setString(1, retailerID);
 
             ResultSet RS = stm.executeQuery();

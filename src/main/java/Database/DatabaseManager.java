@@ -5,11 +5,8 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.example.bycicon.Fetch_Categories;
 import org.example.bycicon.SHA256;
 import org.example.bycicon.Search_Engine;
-import org.example.bycicon.TryToBuy;
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-import javax.print.DocFlavor;
 import java.io.File;
 import java.sql.*;
 import java.time.LocalDate;
@@ -60,6 +57,7 @@ public class DatabaseManager {
        ========================================================= */
     public static void Boot_DB() throws SQLException {
         Fetch_Categories.fetch_Categories();
+        Fetch_Categories.FetchCountryToCurrencyMap();
         createFileDirectory();
 
         // ONLY attempt to create DB/Users if we are running locally
@@ -184,6 +182,8 @@ public class DatabaseManager {
                 Phone VARCHAR(225),
                 Email VARCHAR(150),
                 CountryCode VARCHAR(10),
+                CurrencyCode VARCHAR(10),
+                Country VARCHAR(20),
                 Account_Time_Stamp VARCHAR(225)
             )
             """;
@@ -230,12 +230,6 @@ public class DatabaseManager {
                 )
                 """;
         executeSQL(Query);
-    }
-
-    private static void SearchHistory(){
-        String Query = """
-                
-                """;
     }
 
     /* =========================================================
@@ -300,7 +294,7 @@ public class DatabaseManager {
     public static String CompleteAccount(JSONObject data) throws SQLException {
         String query = """
         UPDATE Accounts_Table
-        SET AccountComplete = ?, Phone = ?, Email = ?, CountryCode = ?
+        SET AccountComplete = ?, Phone = ?, Email = ?, CountryCode = ? , CurrencyCode = ?,Country = ?
         WHERE UserID = ?
     """;
 
@@ -311,7 +305,10 @@ public class DatabaseManager {
             stm.setString(2, data.getString("Phone"));
             stm.setString(3, data.getString("Email"));
             stm.setString(4, data.getString("CountryCode"));
-            stm.setString(5, data.getString("UserId")); // WHERE condition
+            stm.setString(5, data.getString("countrisocode"));
+            stm.setString(6, data.getString("countryName"));
+            stm.setString(7, data.getString("UserId")); // WHERE condition
+
 
             int rows = stm.executeUpdate();
             if (rows > 0) {
@@ -423,35 +420,39 @@ public class DatabaseManager {
     // GET ALL PRODUCT OF A RETAILER
     public static String GetAllMyProduct(String OwnerID) {
         JSONArray allProducts = new JSONArray();
-
         String query = """
-        SELECT ProductID,
-               ProductName,
-               ProductPrice,
-               ProductDescription,
-               ProductImageUrl,
-               ProductTimeStamp
-        FROM Product_Table
-        WHERE OwnerID = ?
-    """;
+                SELECT Product_Table.ProductID,
+                       Product_Table.ProductName,
+                       Product_Table.ProductPrice,
+                       Product_Table.ProductDescription,
+                       Product_Table.ProductImageUrl,
+                       Product_Table.ProductTimeStamp,
+                       Accounts_Table.CurrencyCode
+                       FROM Product_Table
+                       INNER JOIN Accounts_Table ON UserID = Product_Table.OwnerID
+                       WHERE OwnerID = ?
+                """;
 
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(query)) {
 
             stm.setString(1, OwnerID);
-            ResultSet rs = stm.executeQuery();
+            try ( ResultSet rs = stm.executeQuery()){
 
-            while (rs.next()) { // ✅ FIX 1: loop through all rows
-                JSONObject product = new JSONObject(); // ✅ FIX 2: create new object each time
+                while (rs.next()) { // ✅ FIX 1: loop through all rows
+                    JSONObject product = new JSONObject(); // ✅ FIX 2: create new object each time
 
-                product.put("Id", rs.getString("ProductID"));
-                product.put("name", rs.getString("ProductName"));
-                product.put("price", rs.getInt("ProductPrice"));
-                product.put("description", rs.getString("ProductDescription"));
-                product.put("Url", rs.getString("ProductImageUrl"));
-                product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
-                allProducts.put(product);
+                    product.put("Id", rs.getString("ProductID"));
+                    product.put("name", rs.getString("ProductName"));
+                    product.put("price", rs.getInt("ProductPrice"));
+                    product.put("description", rs.getString("ProductDescription"));
+                    product.put("Url", rs.getString("ProductImageUrl"));
+                    product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
+                    product.put("currencyCode",Fetch_Categories.CountryToCurrencyMap.getString(rs.getString("CurrencyCode")));
+                    allProducts.put(product);
+                }
             }
+
 
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -507,7 +508,7 @@ public class DatabaseManager {
         JSONObject result = new JSONObject();
 
         String query = """
-            SELECT UserName, ProfileUrl, Phone, Email, AccountComplete
+            SELECT UserName, ProfileUrl, Phone, Email, AccountComplete,CurrencyCode,Country
             FROM Accounts_Table
             WHERE UserID = ?
             """;
@@ -522,6 +523,8 @@ public class DatabaseManager {
 
                 result.put("User-Name", rs.getString("UserName"));
                 result.put("account_completed", rs.getString("AccountComplete"));
+                result.put("CountryisoCode",rs.getString("CurrencyCode"));
+                result.put("CountryName",rs.getString("Country"));
 
                 String phone = rs.getString("Phone");
                 if (phone != null) result.put("Phone", phone);
@@ -578,6 +581,7 @@ public class DatabaseManager {
 
             a.UserName,
             a.ProfileUrl,
+            a.CurrencyCode,
 
             COALESCE(o.BuyCount, 0) AS BuyCount
 
@@ -607,6 +611,7 @@ public class DatabaseManager {
 
             a.UserName,
             a.ProfileUrl,
+            a.CurrencyCode,
 
             COALESCE(o.BuyCount, 0) AS BuyCount
 
@@ -657,6 +662,7 @@ public class DatabaseManager {
                 product.put("RetailerName", rs.getString("UserName"));
                 product.put("RetailerID", rs.getString("OwnerID"));
                 product.put("profilePic", rs.getString("ProfileUrl"));
+                product.put("currencyCode",Fetch_Categories.CountryToCurrencyMap.getString(rs.getString("CurrencyCode")));
 
                 // 🔹 Scoring system
                 int buyCount = rs.getInt("BuyCount");
@@ -884,7 +890,6 @@ public class DatabaseManager {
     }
 
     public static String PlaceOrder(JSONObject Data) throws SQLException{
-
         String findOwnerQuery = """
                 SELECT OwnerID FROM Product_Table WHERE ProductID = ?
                 """;
@@ -938,8 +943,14 @@ public class DatabaseManager {
         JSONArray Orders = new JSONArray();
         int index = 1;
         String Query = """
-                SELECT * FROM Order_Table WHERE OwnerID = ?
-                """;
+            SELECT o.*, 
+                   a.CurrencyCode, 
+                   p.ProductName
+            FROM Order_Table o
+            INNER JOIN Accounts_Table a ON o.OwnerID = a.UserID
+            INNER JOIN Product_Table p ON o.ProductID = p.ProductID
+            WHERE o.OwnerID = ?
+            """;
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(Query)){
             stm.setString(1,User_ID);
@@ -959,22 +970,8 @@ public class DatabaseManager {
                 Order.put("totalAmount",RS.getInt("Total_Amount"));
                 Order.put("customerPhone",RS.getString("CustomerPhone"));
                 Order.put("status", RS.getString("Order_Status"));
-
-
-                //getting product Name
-                String findProductNameQuery = """
-                        SELECT ProductName FROM Product_Table WHERE ProductID = ?
-                        """;
-                try (Connection conn1 = getConnection();
-                        PreparedStatement stm1 = conn1.prepareStatement(findProductNameQuery)){
-                    stm1.setString(1,ProductID);
-                    ResultSet rs = stm1.executeQuery();
-
-                    if(rs.next()){
-                        Order.put("productName",rs.getString("ProductName"));
-                    }
-                }
-
+                Order.put("currencyCode",Fetch_Categories.CountryToCurrencyMap.getString(RS.getString("currencyCode")));
+                Order.put("productName",RS.getString("ProductName"));
                 Orders.put(Order);
             }
         }

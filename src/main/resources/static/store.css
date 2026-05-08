@@ -19,6 +19,7 @@ body {
     background: transparent;
     background-attachment: fixed;
     background-repeat: no-repeat;
+   
 }
 
 #loading-overlay {
@@ -38,7 +39,7 @@ body {
     justify-content: center;
     align-items: center;
 
-    z-index: 9999;
+    z-index: 9997;
 }
 
 .loader-circle {
@@ -111,6 +112,10 @@ nav {
     box-shadow: 0 0 5px black;
 }
 
+.user-icon i {
+    font-size: 70px;
+}
+
 .user-pic {
     display: none;
 }
@@ -154,6 +159,446 @@ nav {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+
+/*===== Payment Overlay ======*/
+.payment-overlay,
+.success-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background: rgba(0, 0, 0, 0.356);
+
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    /* for Safari */
+
+    display: none;
+    justify-content: center;
+    align-items: center;
+
+    z-index: 9998;
+}
+
+.payment-overlay {
+    flex-direction: column;
+}
+
+
+.pay-portal {
+    background: #ffffff;
+    padding: 25px 30px;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    position: relative;
+    z-index: 10000;
+}
+
+.pay-portal h4 {
+    margin-bottom: 15px;
+    font-size: 20px;
+    color: #000;
+}
+
+.pay-portal p {
+    font-size: 14px;
+    color: #444;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.customer-number-input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    outline: none;
+
+    font-size: 14px;
+}
+
+.customer-number-input:focus {
+    border-color: #000;
+}
+
+.pay-portal button {
+    width: 100%;
+    padding: 12px;
+    background: #000;
+    /* black button */
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s ease;
+    margin-top: 15px;
+}
+
+.pay-portal button:hover {
+    background: #222;
+}
+
+.pay-portal button:active {
+    transform: scale(0.98);
+}
+
+.pay-portal {
+    animation: popIn 0.25s ease;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+
+/* OVERLAY BACKGROUND */
+.cart-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+
+    z-index: 1000;
+}
+
+/* MODAL CONTAINER */
+.cart-modal {
+    background: #fff;
+    width: 90%;
+    max-width: 520px;
+    height: 330px;
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s ease;
+}
+
+/* CLOSE BUTTON */
+.cart-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    width: 40px;
+    height: 40px;
+    margin: 5px;
+    border: none;
+    background: black;
+    border-radius: 50%;
+    color: red;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+/* PRODUCT SECTION */
+.cart-product {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.cart-product__image {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+.cart-product__name {
+    font-weight: bold;
+    font-size: 20px;
+    color: black;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cart-product__price {
+    font-weight: bold;
+    font-size: 16px;
+    color: green;
+    padding-left: 20px;
+}
+
+.cart-product__description {
+    font-size: 13px;
+    color: black;
+    padding: 5px;
+    height: 120px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    /* show only 3 lines */
+    -webkit-box-orient: vertical;
+    overflow: auto;
+    word-break: break-word;
+    margin-top: 15px;
+}
+
+/* RETAILER */
+.cart-retailer {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.cart-retailer__image {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.cart-retailer__name {
+    font-weight: bold;
+}
+
+.cart-retailer__email,
+.cart-retailer__phone {
+    font-size: 12px;
+    color: #777;
+}
+
+/* ACTIONS */
+.cart-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* QUANTITY CONTROL */
+.cart-quantity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.qty-btn {
+    width: 30px;
+    height: 30px;
+
+    border: none;
+    background: #eee;
+    border-radius: 6px;
+
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.qty-number {
+    font-weight: bold;
+}
+
+.total-amount{
+    background: black;
+    color: white;
+    padding: 10px 15px;
+    width: max-content;
+    border-radius: 8px;
+}
+
+/* BUY BUTTON */
+.cart-buy-btn {
+    background: #000;
+    color: #fff;
+
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.cart-buy-btn:hover {
+    background: #333;
+}
+
+/*======opening for no products found ======*/
+.no-found-products {
+    display: none;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    border-radius: 10px;
+    margin: 20px auto;
+    max-width: 500px;
+}
+
+.no-found-products .icon-container i {
+    font-size: 3.5rem;
+    color: black; /* Soft grey */
+    margin-bottom: 20px;
+}
+
+.no-found-products h3 {
+    font-size: 1.5rem;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.no-found-products p {
+    color: #718096;
+    margin-bottom: 25px;
+}
+
+.empty-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-browse {
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+}
+
+.btn-browse {
+    background-color: green;
+    color: white;
+}
+
+.btn-browse:hover {
+    background-color: #357abd;
+}
+
+/*Closing for no products found*/
+
+/*======= order sucess =======*/
+/* Container to center everything */
+.success-container {
+    display: flex; /* Hidden by default */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease-out;
+    background: white;
+    width: 400px;
+    border-radius: 20px;
+}
+
+/* The animated checkmark circle */
+.success-circle {
+    width: 80px;
+    height: 80px;
+    background-color: #28a745;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    margin: 0 auto 20px;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    animation: scaleUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.success-title {
+    color: #333;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.success-text {
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 25px;
+}
+
+.success-close-btn {
+    background-color: #333;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.2s;
+}
+
+.success-close-btn:hover {
+    transform: scale(1.05);
+    background-color: #000;
+}
+
+
+
+.iti {
+    width: 100%;
+}
+
+.iti__selected-flag {
+    max-width: 90px;
+}
+
+.iti__search-input {
+   border-radius: 20px;
+}
+
+
+/* ANIMATION */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cancel-purchase {
+    background: black;
+    color: white;
+    width: 40px;
+    height: 40px;
+    margin: 0 0 30px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    justify-self: end;
+    transition: 0.3s ease;
+}
+
+.cancel-purchase:hover {
+    background: red;
+    transform: scale(1.33);
 }
 
 /*Styling main where all products will be dispalyed*/

@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- International Telephone Input CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.5/build/css/intlTelInput.css">
     <link rel="stylesheet" th:href="@{/store.css}">
     <title th:text="${retailer.retailerName}"></title>
 </head>
@@ -24,17 +26,121 @@
             <p class="email" th:text="${retailer.retailerEmail}"></p>
             <div class="nav-bottom">
                 <p class="phone" th:text="${retailer.retailerPhone}"></p>
-                <i class="fa-solid fa-phone"></i>
+                <i class="fa-solid fa-phone" id="call"></i>
             </div>
         </div>
     </nav>
-    <main>
+    <div class="payment-overlay">
 
+        <div class="pay-portal">
+            <div class="cancel-purchase"><i class="fa-solid fa-x"></i></div>
+            <h4>Complete Your Order</h4>
+
+            <p>
+                You’re almost done! 🚀
+                Payment is currently arranged directly with the retailer.
+            </p>
+
+            <p>
+                After placing your order, the retailer will contact you to confirm:
+                <br>• Payment method (on delivery or upfront)
+                <br>• Delivery or pickup details
+            </p>
+
+            <p>Please enter your phone number below to proceed:</p>
+            <input type="tel" placeholder="Enter your phone number" class="customer-number-input">
+            <button type="button" class="purchase-btn">Place Order</button>
+        </div>
+    </div>
+    <div class="cart-overlay">
+        <div class="cart-modal">
+
+            <!-- CLOSE BUTTON (optional but useful) -->
+            <button class="cart-close-btn">&times;</button>
+
+            <!-- PRODUCT SECTION -->
+            <div class="cart-product">
+
+                <img src="/image/photo-1555617766-c94804975da3.avif" alt="Product Image" class="cart-product__image">
+
+                <div class="cart-product__details">
+                    <p class="cart-product__name"></p>
+                    <p class="cart-product__price"></p>
+                    <p class="cart-product__description"></p>
+                </div>
+
+            </div>
+
+            <!-- RETAILER INFO -->
+            <div class="cart-retailer">
+                <img src="/image/photo-1555617766-c94804975da3.avif" alt="Retailer Image" class="cart-retailer__image">
+
+                <div class="cart-retailer__info">
+                    <p class="cart-retailer__name"></p>
+                    <p class="cart-retailer__email"></p>
+                    <p class="cart-retailer__phone"></p>
+                </div>
+            </div>
+
+            <!-- ORDER CONTROLS -->
+            <div class="cart-actions">
+                <div class="cart-quantity">
+                    <button class="qty-btn minus">−</button>
+                    <span class="qty-number">1</span>
+                    <button class="qty-btn plus">+</button>
+                </div>
+
+                <p class="total-amount"></p>
+
+                <button class="cart-buy-btn">
+                    <i class="fa-solid fa-shopping-cart"></i>Buy
+                </button>
+            </div>
+
+            <!-- CUSTOMER INFO -->
+            <div class="cart-customer">
+                <!-- future inputs -->
+            </div>
+        </div>
+    </div>
+    <div class="no-found-products">
+        <div class="icon-container">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <h3>No products found</h3>
+        <p>We couldn't find any items linked to this Retailer ID. Please double-check the link or contact your
+            distributor for assistance.</p>
+
+        <!-- Action buttons help the user stay on the site -->
+        <div class="empty-actions">
+            <button type="button" class="btn-browse" onclick="window.location.reload()">Refresh Page</button>
+        </div>
+    </div>
+    <div class="success-overlay">
+        <div id="success-screen" class="success-container">
+            <div class="success-content">
+                <div class="success-circle">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h2 class="success-title">Order Placed!</h2>
+                <p class="success-text">
+                    Your order has been sent to the retailer.
+                    <br>
+                    <strong>Order ID: <span id="display-order-id">#0000</span></strong>
+                </p>
+                <button type="button" class="success-close-btn">
+                    Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
+    <main class="main">
     </main>
     <script th:inline="javascript">
         const Profile = /*[[${retailer.retailerProfile}]]*/ null;
     </script>
 
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.5/build/js/intlTelInput.min.js"></script>
     <script th:src="@{/store.js}"></script>
 </body>
 

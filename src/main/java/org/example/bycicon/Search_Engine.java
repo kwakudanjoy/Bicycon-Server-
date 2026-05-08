@@ -65,6 +65,7 @@ public class Search_Engine {
                 a.UserName,
                 a.ProfileUrl,
                 a.UserID,
+                a.CurrencyCode,
 
                 COALESCE(o.BuyCount, 0) AS BuyCount,
 
@@ -140,6 +141,7 @@ public class Search_Engine {
                 product.put("RetailerName", rs.getString("UserName"));
                 product.put("RetailerID", rs.getString("UserID"));
                 product.put("profilePic", rs.getString("ProfileUrl"));
+                product.put("currencyCode", Fetch_Categories.CountryToCurrencyMap.get(rs.getString("CurrencyCode")));
 
                 // =========================
                 // STATS
