@@ -755,14 +755,12 @@ public class DatabaseManager {
 
                     if (file.exists()){
                         boolean deleted = file.delete();
-                        System.out.println("file deleted");
                         if (!deleted) {
                             System.out.println("Warning: Failed to delete old image");
                         }
                     }
                 }
             }
-
         }
 
         String Query = """

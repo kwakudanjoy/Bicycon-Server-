@@ -9,11 +9,14 @@ const PhoneNumber = document.querySelector(".phone");
 let product_ID = null;
 
 
+const toast = document.querySelector(".toast");
+const toastIcon = document.querySelector(".toast-icon > i");
+const toastHeader = document.querySelector(".toast-content > h4");
+const toastText = document.querySelector(".toast-text");
+
+
 // backend base URL
 const IPAddress = "http://localhost:8080";
-
-// Thymeleaf injected value (safe way)
-//let Profile = document.body.dataset.profile;
 
 // ================= PROFILE =================
 function setRetailerProfile() {
@@ -24,6 +27,32 @@ function setRetailerProfile() {
         document.querySelector(".user-pic").style.display = "flex";
         document.querySelector(".user-icon").style.display = "none";
     }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    toast.classList.add("hide");
+});
+
+function showToast(icon, header, text, iconColor) {
+    toastIcon.className = "toast-icon"; // safe reset
+    toastIcon.className = "";
+    icon.split(" ").forEach(cls => {
+        toastIcon.classList.add(cls);
+    });
+
+    toastIcon.style.color = iconColor;
+    toastHeader.textContent = header;
+    toastText.textContent = text;
+    toast.classList.remove("hide");
+
+    setTimeout(() => {
+        toast.classList.add("show");
+    }, 100);
+
+    setTimeout(() => {
+        toast.classList.remove("show");
+        toast.classList.add("hide");
+    }, 3000);
 }
 
 // ================= PRODUCTS =================
@@ -64,7 +93,7 @@ async function GettingAllProducts() {
         });
 
         document.querySelector("main").appendChild(fragment);
-    }else{
+    } else {
         NoProducts.style.display = "flex";
     }
 
@@ -75,7 +104,7 @@ async function GettingAllProducts() {
 setRetailerProfile(Profile);
 GettingAllProducts();
 
-Call.addEventListener("click",()=>{
+Call.addEventListener("click", () => {
     let phoneNumber = PhoneNumber.textContent;
     window.location.href = `tel:${phoneNumber}`;
 });
@@ -84,6 +113,7 @@ Call.addEventListener("click",()=>{
 Main.addEventListener("click", async e => {
     if (e.target.closest(".order")) {
 
+      
         const productCard = e.target.closest(".a-product");
         product_ID = productCard.dataset.productId;
         const productName = productCard.querySelector(".a-prod-name").textContent;
@@ -124,7 +154,6 @@ Main.addEventListener("click", async e => {
                 Cart_Overlay.querySelector(".total-amount").textContent = `${counryCode} : ${total}`;
                 Cart_Overlay.querySelector(".qty-number").textContent = productQuatity;
             }
-
         }
 
         //======== executing plus btn =========
@@ -141,13 +170,34 @@ Main.addEventListener("click", async e => {
             Payment_Overlay.style.display = "flex";
             Payment_Overlay.querySelector(".customer-number-input").value = null;
         }
+        
+        let inflatePayload = {
+            INSTRUCTION: "INFLATE-TRY-TO-BUY",
+            productID: product_ID
+        }
 
-        Cart_Overlay.style.display = "flex";
+        let inflateResult = null;
+        try {
+            Loading.style.display = "flex";
+            inflateResult = await fetchData(inflatePayload);
+            Loading.style.display = "none";
+        } catch (err) {
+            showToast(
+                "fa-solid fa-exclamation",
+                "Error",
+                "Sorry error occurred",
+                "red"
+            );
+            return;
+        }
 
+        if (inflateResult && inflateResult.status === "OK") {
+            Cart_Overlay.style.display = "flex";
+        }
     }
 });
 
-Payment_Overlay.querySelector(".cancel-purchase").addEventListener("click",() => {
+Payment_Overlay.querySelector(".cancel-purchase").addEventListener("click", () => {
     Cart_Overlay.style.display = "flex";
     Payment_Overlay.style.display = "none";
 });
@@ -171,12 +221,22 @@ Payment_Overlay.querySelector(".purchase-btn").addEventListener("click", async (
 
     try {
         Loading.style.display = "flex";
-        let Result = await fetchData(Payload);
+        let Result = null;
+        try {
+            Result = await fetchData(Payload);
+        } catch (err) {
+            showToast(
+                "fa-solid fa-exclamation",
+                "Error",
+                "Error Occured",
+                "red"
+            );
+        }
         Loading.style.display = "none";
 
         if (Result && Result.status === "OK") {
             Payment_Overlay.style.display = "none"
-            OrderSuccess.querySelector("#display-order-id").textContent ="#" + Result["orderID"];
+            OrderSuccess.querySelector("#display-order-id").textContent = "#" + Result["orderID"];
             OrderSuccess.style.display = "flex";
         }
     } catch (err) {
@@ -186,8 +246,8 @@ Payment_Overlay.querySelector(".purchase-btn").addEventListener("click", async (
     }
 });
 
-OrderSuccess.querySelector(".success-close-btn").addEventListener("click",()=>{
-    OrderSuccess.style.display  = "none";
+OrderSuccess.querySelector(".success-close-btn").addEventListener("click", () => {
+    OrderSuccess.style.display = "none";
 });
 
 
@@ -206,9 +266,8 @@ async function fetchData(payload) {
 
     } catch (err) {
         console.error("Fetch error:", err);
-        alert("Error occurred. Check connection.");
         Loading.style.display = "none";
-        return null;
+        throw err;
     }
 }
 

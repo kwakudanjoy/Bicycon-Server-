@@ -241,6 +241,16 @@ public class Processor {
                     return Search_Engine.Search(input);
                 }
 
+                case "INFLATE-TRY-TO-BUY"->{
+                    JSONObject JResult = new JSONObject();
+                    String productID = DATA.getString("productID");
+                    String Result = TryToBuy.addToProducts(productID);
+                    if (Result == "OK"){
+                        JResult.put("status","OK");
+                    }
+                    return JResult.toString();
+                }
+
                 case "PING" -> {
                     JSONObject PING = new JSONObject();
                     PING.put("status", "OK");

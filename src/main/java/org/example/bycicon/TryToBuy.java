@@ -52,7 +52,8 @@ public class TryToBuy {
         }, 0, 1, TimeUnit.SECONDS);
     }
 
-    public static void addToProducts(String productID) {
+    public static String addToProducts(String productID) {
         productIds.add(productID);
+        return ("OK");
     }
 }
