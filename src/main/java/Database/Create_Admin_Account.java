@@ -1,6 +1,6 @@
 package Database;
 
-import org.example.bycicon.SHA256;
+import org.example.omart.SHA256;
 
 import java.sql.Connection;
 import java.sql.ResultSet;

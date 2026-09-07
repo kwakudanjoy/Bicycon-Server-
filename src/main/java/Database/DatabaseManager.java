@@ -1,13 +1,15 @@
 package Database;
 
+
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.example.bycicon.Fetch_Categories;
-import org.example.bycicon.SHA256;
-import org.example.bycicon.Search_Engine;
+import org.example.omart.Fetch_Config_Data;
+import org.example.omart.SHA256;
+import org.example.omart.Search_Engine;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,45 +21,96 @@ public class DatabaseManager {
        DYNAMIC CONSTANTS
        ========================================================= */
 // 1. Get values from Environment (Cloud) or use your Local defaults
-    private static final String DB_NAME = "B_V1";
+    private static String DB_NAME;
 
-    private static final String DB_HOST = System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "localhost";
-    private static final String DB_PORT = System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "3306";
+    private static String DB_HOST;
+    private static String DB_PORT;
 
-    // The "Main" credentials the app will use
-    private static final String APP_USER = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "bicycon_admin";
-    private static final String APP_PASSWORD = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "Vrd3115$23";
+    // Main app credentials
+    private static String APP_USER;
+    private static String APP_PASSWORD;
 
-    // The "Root" credentials (ONLY used locally)
-    private static final String ROOT_USER = "root";
-    private static final String ROOT_PASSWORD = "Vrd3115$23";
+    // Root credentials
+    private static String ROOT_USER;
+    private static String ROOT_PASSWORD;
 
-    // The JDBC URLs
-    private static final String URL_NO_DB = "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    //Db url
+    private static String URL_NO_DB;
+    private static String URL_WITH_DB;
 
-    private static final String URL_WITH_DB = System.getenv("DB_URL") != null
-            ? System.getenv("DB_URL")
-            : "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    private static int ProductLimit = 100;
+    public static void init() {
 
+        boolean production = System.getenv("DB_URL") != null;
+
+        if (production) {
+
+            System.out.println("Production environment detected.");
+
+            DB_NAME = "omart";
+            DB_HOST = System.getenv("DB_HOST");
+            DB_PORT = System.getenv("DB_PORT");
+
+            APP_USER = System.getenv("DB_USER");
+            APP_PASSWORD = System.getenv("DB_PASSWORD");
+
+        } else {
+
+            System.out.println("Local environment detected.");
+
+            Fetch_Config_Data.FetchDataBaseConfigs();
+
+            DB_NAME =
+                    Fetch_Config_Data.DataBaseConfigs.getString("Data-Base-Name");
+
+            DB_HOST =
+                    Fetch_Config_Data.DataBaseConfigs.getString("Data-Base-Host");
+
+            DB_PORT =
+                    Fetch_Config_Data.DataBaseConfigs.getString("Data-Base-Port");
+
+            APP_USER =
+                    Fetch_Config_Data.DataBaseConfigs.getString("Data-Base-User");
+
+            APP_PASSWORD =
+                    Fetch_Config_Data.DataBaseConfigs.getString("Data-Base-Password");
+        }
+
+        // Root credentials are only needed for local automatic DB setup
+        ROOT_USER = System.getenv("DB_ROOT_USER");
+        ROOT_PASSWORD = System.getenv("DB_ROOT_PASSWORD");
+
+        create_Url_No_Db();
+    }
+
+
+    private static void create_Url_No_Db(){
+        URL_NO_DB = "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+        URL_WITH_DB = System.getenv("DB_URL") != null
+                ? System.getenv("DB_URL")
+                : "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    }
 
     /* =========================================================
        DIRECTORIES
        ========================================================= */
     public static File BicyconProfile =
-            new File(System.getProperty("user.home") + "/Bicycon/Profile");
+            new File(System.getProperty("user.home") + "/OMart/Profile");
 
     public static File ProductImages =
-            new File(System.getProperty("user.home") + "/Bicycon/Products");
+            new File(System.getProperty("user.home") + "/OMart/Products");
 
     public static File Data =
-            new File(System.getProperty("user.home") + "/Bicycon/Data");
+            new File(System.getProperty("user.home") + "/OMart/Data");
 
     /* =========================================================
        BOOT SYSTEM
        ========================================================= */
     public static void Boot_DB() throws SQLException {
-        Fetch_Categories.fetch_Categories();
-        Fetch_Categories.FetchCountryToCurrencyMap();
+
+        Fetch_Config_Data.fetch_Categories();
+        Fetch_Config_Data.FetchCountryToCurrencyMap();
+        Fetch_Config_Data.Fetch_Server_url();
         createFileDirectory();
 
         // ONLY attempt to create DB/Users if we are running locally
@@ -75,6 +128,7 @@ public class DatabaseManager {
         createAccountTable();
         CreateProductTable();
         CreatePlaceOrderTable();
+
 
         System.out.println("Database Boot Completed");
     }
@@ -127,7 +181,7 @@ public class DatabaseManager {
         config.setPassword(APP_PASSWORD);
 
         // 3. Pool Tuning (Kept exactly as you had it)
-        config.setMaximumPoolSize(10);
+        config.setMaximumPoolSize(50);
         config.setMinimumIdle(2);
         config.setIdleTimeout(30000);
         config.setConnectionTimeout(10000);
@@ -175,16 +229,14 @@ public class DatabaseManager {
             CREATE TABLE IF NOT EXISTS Accounts_Table (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 UserID VARCHAR(20) NOT NULL UNIQUE,
-                UserName VARCHAR(100) NOT NULL,
-                UserPassword VARCHAR(255) NOT NULL,
-                AccountComplete VARCHAR(3),
+                BusinessName VARCHAR(100) NOT NULL,
                 ProfileUrl VARCHAR(225),
                 Phone VARCHAR(225),
                 Email VARCHAR(150),
-                CountryCode VARCHAR(10),
-                CurrencyCode VARCHAR(10),
+                DialCode VARCHAR(10),
+                Ios2Code VARCHAR(10),
                 Country VARCHAR(20),
-                Account_Time_Stamp VARCHAR(225)
+                Account_Time_Stamp DATETIME
             )
             """;
 
@@ -201,11 +253,11 @@ public class DatabaseManager {
                   OwnerID VARCHAR(20),
                   ProductID VARCHAR(20),
                   ProductName VARCHAR (2000),
-                  ProductPrice INT,
+                  ProductPrice DECIMAL(18,2),
                   ProductCategory VARCHAR (20),
                   ProductDescription VARCHAR(2000),
                   ProductImageUrl VARCHAR(200),
-                  ProductTimeStamp VARCHAR(200),
+                  ProductTimeStamp DATETIME,
                   TryToBuyCount INT
                 )
                 """;
@@ -220,11 +272,11 @@ public class DatabaseManager {
                 OwnerID VARCHAR(200),
                 OrderID VARCHAR(5),
                 ProductID VARCHAR(20),
-                Date_Of_Order VARCHAR(200),
-                Time_Of_Order VARCHAR(200),
+                Date_Of_Order DATE,
+                Time_Of_Order TIME,
                 Quantity INT,
-                Amount_Per_Product INT,
-                Total_Amount INT,
+                Amount_Per_Product DECIMAL(18,2),
+                Total_Amount DECIMAL(20,2),
                 CustomerPhone VARCHAR(20),
                 Order_Status VARCHAR(10)
                 )
@@ -232,91 +284,68 @@ public class DatabaseManager {
         executeSQL(Query);
     }
 
+    public static  String CHECK_EXISTING_EMAIL(String email) throws SQLException{
+        JSONObject accountInfo = new JSONObject();
+        String Query = """
+                SELECT * FROM Accounts_Table WHERE Email = ?
+                """;
+        try (Connection conn = getConnection();
+                         PreparedStatement stm = conn.prepareStatement(Query)){
+            stm.setString(1, email);
+            ResultSet rs = stm.executeQuery();
+            if (rs.next()){
+                accountInfo.put("status","OK");
+                accountInfo.put("id",rs.getString("UserID"));
+                accountInfo.put("business-name",rs.getString("BusinessName"));
+                accountInfo.put("profile-pic",rs.getString("ProfileUrl"));
+                accountInfo.put("phone",rs.getString("Phone"));
+                accountInfo.put("email",rs.getString("Email"));
+                accountInfo.put("dialCode",rs.getString("DialCode"));
+                String ISO2 = rs.getString("Ios2Code");
+                accountInfo.put("iso2",ISO2);
+                accountInfo.put("country",rs.getString("Country"));
+                accountInfo.put("currency",Fetch_Config_Data.CountryToCurrencyMap.getString(ISO2));
+
+            }else {
+                accountInfo.put("status","!OK");
+            }
+        }
+        return accountInfo.toString();
+    }
+
     /* =========================================================
        CONFIRM LOGIN
        ========================================================= */
-    public static String Confirm_Logins(String USER, String PASSWORD) throws SQLException {
-        JSONObject Result = new JSONObject();
 
-        String QUERY = """
-            SELECT UserPassword
-            FROM Accounts_Table
-            WHERE UserID = ?
-            """;
-
-        try (Connection conn = getConnection();
-                PreparedStatement ps = conn.prepareStatement(QUERY)) {
-            ps.setString(1, USER);
-            ResultSet rst = ps.executeQuery();
-            if (rst.next()) {
-
-                String storedPassword = rst.getString("UserPassword");
-
-                if (SHA256.hash(PASSWORD).equals(storedPassword)){
-                    Result.put("status","OK");
-                    return "OK";
-                }else {
-                    return "!OK";
-                }
-            }else {
-                return "!USER";
-            }
-        }
-    }
 
 
 
     /* =========================================================
        INSERT NEW ACCOUNT
        ========================================================= */
-    public static String InsertNewAccount(JSONObject data) throws SQLException {
+    public static String InsertNewAccount(String ID ,JSONObject data) throws SQLException {
 
-        String query = """
-                INSERT INTO Accounts_Table
-                (UserID, UserName, UserPassword, AccountComplete, Account_Time_Stamp)
-                VALUES (?, ?, ?, ?, ?)
+        String Query = """
+                INSERT INTO Accounts_Table (
+                UserID,BusinessName,Phone,Email,DialCode,Ios2Code,Country,Account_Time_Stamp
+                ) VALUES (?,?,?,?,?,?,?,?)
                 """;
 
         try (Connection conn = getConnection();
-                PreparedStatement stm = conn.prepareStatement(query)) {
+                        PreparedStatement stm = conn.prepareStatement(Query)){
+            stm.setString(1,ID);
+            stm.setString(2,data.getString("business-name"));
+            stm.setString(3,data.getString("phone"));
+            stm.setString(4,data.getString("email"));
+            stm.setString(5,data.getString("dialCode"));
+            stm.setString(6,data.getString("iso2"));
+            stm.setString(7,data.getString("country"));
+            stm.setTimestamp(8,Timestamp.valueOf(LocalDateTime.now()));
 
-            stm.setString(1, data.getString("User-ID"));
-            stm.setString(2, data.getString("User-Name"));
-            stm.setString(3, data.getString("User-Password"));
-            stm.setString(4, "NO");
-            stm.setString(5, data.getString("Time-Stamp"));
-            stm.executeUpdate();
-
-            return "OK";
+            stm.execute();
         }
-    }
 
-    public static String CompleteAccount(JSONObject data) throws SQLException {
-        String query = """
-        UPDATE Accounts_Table
-        SET AccountComplete = ?, Phone = ?, Email = ?, CountryCode = ? , CurrencyCode = ?,Country = ?
-        WHERE UserID = ?
-    """;
-
-        try (Connection conn = getConnection();
-                PreparedStatement stm = conn.prepareStatement(query)) {
-
-            stm.setString(1, "YES"); // mark account complete
-            stm.setString(2, data.getString("Phone"));
-            stm.setString(3, data.getString("Email"));
-            stm.setString(4, data.getString("CountryCode"));
-            stm.setString(5, data.getString("countrisocode"));
-            stm.setString(6, data.getString("countryName"));
-            stm.setString(7, data.getString("UserId")); // WHERE condition
-
-
-            int rows = stm.executeUpdate();
-            if (rows > 0) {
-                return "OK";
-            } else {
-                return "User not found";
-            }
-        }
+        return "ok";
     }
 
     // ============= Storing profile pic ==============
@@ -344,8 +373,6 @@ public class DatabaseManager {
 
     public static String StoreNewProduct(JSONObject data) throws SQLException {
 
-        Connection conn = getConnection();
-
         String owner = data.getString("owner");
 
         String insertQuery = """
@@ -362,58 +389,53 @@ public class DatabaseManager {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
     """;
 
-        try {
+        try (Connection conn = getConnection()) {
+
             conn.setAutoCommit(false);
 
-            // 🔒 lock retailer
-            try (PreparedStatement lockStmt = conn.prepareStatement(
-                    "SELECT UserID FROM Accounts_Table WHERE UserID = ? FOR UPDATE"
-            )) {
-                lockStmt.setString(1, owner);
-                lockStmt.executeQuery();
-            }
+            try {
 
-            // 🔍 count products
-            int count;
-            try (PreparedStatement countStmt = conn.prepareStatement(
-                    "SELECT COUNT(*) FROM Product_Table WHERE OwnerID = ?"
-            )) {
-                countStmt.setString(1, owner);
-                ResultSet rs = countStmt.executeQuery();
+                int count;
 
-                rs.next();
-                count = rs.getInt(1);
-            }
+                try (PreparedStatement countStmt = conn.prepareStatement(
+                        "SELECT COUNT(*) FROM Product_Table WHERE OwnerID = ?"
+                )) {
+                    countStmt.setString(1, owner);
+                    ResultSet rs = countStmt.executeQuery();
+                    rs.next();
+                    count = rs.getInt(1);
+                }
 
-            if (count >= 20) {
+                if (count >= ProductLimit) {
+                    conn.rollback();
+                    return "LIMIT_REACHED";
+                }
+
+                try (PreparedStatement stm = conn.prepareStatement(insertQuery)) {
+
+                    stm.setString(1, owner);
+                    stm.setString(2, data.getString("ProdID"));
+                    stm.setString(3, data.getString("name"));
+
+                    BigDecimal price = new BigDecimal(data.get("price").toString());
+                    stm.setBigDecimal(4, price);
+
+                    stm.setString(5, data.getString("Category"));
+                    stm.setString(6, data.getString("Description"));
+                    stm.setString(7, data.getString("ProdUrl"));
+                    stm.setTimestamp(8, new Timestamp(System.currentTimeMillis()));
+
+                    stm.executeUpdate();
+                }
+
+                conn.commit();
+                return "OK";
+
+            } catch (Exception e) {
                 conn.rollback();
-                return "LIMIT_REACHED";
+                throw new SQLException("StoreNewProduct failed", e);
             }
 
-            // ✅ insert product (ONLY ONCE)
-            try (PreparedStatement stm = conn.prepareStatement(insertQuery)) {
-
-                stm.setString(1, owner);
-                stm.setString(2, data.getString("ProdID"));
-                stm.setString(3, data.getString("name"));
-                stm.setInt(4, data.getInt("price"));
-                stm.setString(5, data.getString("Category"));
-                stm.setString(6, data.getString("Description"));
-                stm.setString(7, data.getString("ProdUrl"));
-                stm.setString(8, String.valueOf(LocalDateTime.now()));
-
-                stm.executeUpdate();
-            }
-
-            conn.commit();
-            return "OK";
-
-        } catch (Exception e) {
-            conn.rollback();
-            throw new RuntimeException(e);
-
-        } finally {
-            conn.setAutoCommit(true);
         }
     }
 
@@ -427,7 +449,8 @@ public class DatabaseManager {
                        Product_Table.ProductDescription,
                        Product_Table.ProductImageUrl,
                        Product_Table.ProductTimeStamp,
-                       Accounts_Table.CurrencyCode
+                       Product_Table.ProductCategory,
+                       Accounts_Table.Ios2Code
                        FROM Product_Table
                        INNER JOIN Accounts_Table ON UserID = Product_Table.OwnerID
                        WHERE OwnerID = ?
@@ -444,11 +467,12 @@ public class DatabaseManager {
 
                     product.put("Id", rs.getString("ProductID"));
                     product.put("name", rs.getString("ProductName"));
-                    product.put("price", rs.getInt("ProductPrice"));
+                    product.put("price", rs.getBigDecimal("ProductPrice"));
                     product.put("description", rs.getString("ProductDescription"));
                     product.put("Url", rs.getString("ProductImageUrl"));
-                    product.put("postedAt", Search_Engine.PostedAt(LocalDateTime.parse(rs.getString("ProductTimeStamp"))));
-                    product.put("currencyCode",Fetch_Categories.CountryToCurrencyMap.getString(rs.getString("CurrencyCode")));
+                    product.put("postedAt", Search_Engine.PostedAt(rs.getTimestamp("ProductTimeStamp").toLocalDateTime()));
+                    product.put("Category",rs.getString("ProductCategory"));
+                    product.put("currencyCode", Fetch_Config_Data.CountryToCurrencyMap.getString(rs.getString("Ios2Code")));
                     allProducts.put(product);
                 }
             }
@@ -487,8 +511,7 @@ public class DatabaseManager {
                 }
 
                 // 🔹 Always update DB (don’t depend on file delete)
-                try (Connection conn1 = getConnection();
-                        PreparedStatement stm2 = conn1.prepareStatement(updateQuery)) {
+                try (PreparedStatement stm2 = conn.prepareStatement(updateQuery)) {
                     stm2.setString(1, imageName);
                     stm2.setString(2, userID);
 
@@ -503,50 +526,12 @@ public class DatabaseManager {
         return null;
     }
 
-    public static String FetchMyData(String userID) throws SQLException {
-
-        JSONObject result = new JSONObject();
-
-        String query = """
-            SELECT UserName, ProfileUrl, Phone, Email, AccountComplete,CurrencyCode,Country
-            FROM Accounts_Table
-            WHERE UserID = ?
-            """;
-
-        try (Connection conn = getConnection();
-                PreparedStatement stm = conn.prepareStatement(query)) {
-
-            stm.setString(1, userID);
-            ResultSet rs = stm.executeQuery();
-
-            if (rs.next()) {
-
-                result.put("User-Name", rs.getString("UserName"));
-                result.put("account_completed", rs.getString("AccountComplete"));
-                result.put("CountryisoCode",rs.getString("CurrencyCode"));
-                result.put("CountryName",rs.getString("Country"));
-
-                String phone = rs.getString("Phone");
-                if (phone != null) result.put("Phone", phone);
-
-                String email = rs.getString("Email");
-                if (email != null) result.put("Email", email);
-
-                String profile = rs.getString("ProfileUrl");
-                if (profile != null) result.put("profilePic", profile);
-
-            }
-        }
-
-        return result.toString();
-    }
-
     public static String GET_Products_PER_KEY(String key) throws SQLException {
 
         JSONArray products = new JSONArray();
 
         // ✅ Validate category
-        JSONArray categoriesArray = Fetch_Categories.Categories.optJSONArray("Product_Categories");
+        JSONArray categoriesArray = Fetch_Config_Data.Categories.optJSONArray("Product_Categories");
         boolean isAll = key.equalsIgnoreCase("All");
         boolean found = false;
 
@@ -579,9 +564,9 @@ public class DatabaseManager {
             p.TryToBuyCount,
             p.OwnerID,
 
-            a.UserName,
+            a.BusinessName,
             a.ProfileUrl,
-            a.CurrencyCode,
+            a.Ios2Code,
 
             COALESCE(o.BuyCount, 0) AS BuyCount
 
@@ -609,9 +594,9 @@ public class DatabaseManager {
             p.TryToBuyCount,
             p.OwnerID,
 
-            a.UserName,
+            a.BusinessName,
             a.ProfileUrl,
-            a.CurrencyCode,
+            a.Ios2Code,
 
             COALESCE(o.BuyCount, 0) AS BuyCount
 
@@ -647,24 +632,20 @@ public class DatabaseManager {
                 // 🔹 Basic product info
                 product.put("ImageUrl", rs.getString("ProductImageUrl"));
                 product.put("Name", rs.getString("ProductName"));
-                product.put("Price", rs.getInt("ProductPrice"));
+                product.put("Price", rs.getBigDecimal("ProductPrice"));
                 product.put("Description", rs.getString("ProductDescription"));
                 product.put("prodID", rs.getString("ProductID"));
 
-                // 🔹 Time formatting
-                product.put("postedAt",
-                        Search_Engine.PostedAt(
-                                LocalDateTime.parse(rs.getString("ProductTimeStamp"))
-                        )
-                );
+                //Time formatting
+                product.put("postedAt", Search_Engine.PostedAt(rs.getTimestamp("ProductTimeStamp").toLocalDateTime()));
 
-                // 🔹 Retailer info (from JOIN)
-                product.put("RetailerName", rs.getString("UserName"));
+                //Retailer info (from JOIN)
+                product.put("RetailerName", rs.getString("BusinessName"));
                 product.put("RetailerID", rs.getString("OwnerID"));
                 product.put("profilePic", rs.getString("ProfileUrl"));
-                product.put("currencyCode",Fetch_Categories.CountryToCurrencyMap.getString(rs.getString("CurrencyCode")));
+                product.put("currencyCode", Fetch_Config_Data.CountryToCurrencyMap.getString(rs.getString("Ios2Code")));
 
-                // 🔹 Scoring system
+                // Scoring system
                 int buyCount = rs.getInt("BuyCount");
                 int tryCount = rs.getInt("TryToBuyCount");
                 int score = (buyCount * 3) + tryCount;
@@ -678,27 +659,6 @@ public class DatabaseManager {
         }
 
         return products.toString();
-    }
-
-
-    public static String UpdateEmail (String UserID , String NewEmail) throws SQLException {
-        String Query = """
-                UPDATE Accounts_Table SET Email = ?  WHERE UserID = ?
-                """;
-
-        try (Connection conn = getConnection();
-                PreparedStatement stm = conn.prepareStatement(Query)){
-
-            stm.setString(1,NewEmail);
-            stm.setString(2,UserID);
-
-            int row = stm.executeUpdate();
-            if (row > 0){
-                return "OK";
-            }
-
-        }
-        return  "!OK";
     }
 
     public static String UpdatePhone (String UserID , String NewPhone) throws SQLException{
@@ -741,39 +701,56 @@ public class DatabaseManager {
         return Result.toString();
     }
 
-    public static String Delete_My_Product (String Product_ID) throws SQLException{
-        String query = "SELECT ProductImageUrl FROM Product_Table WHERE ProductID = ?";
+    public static String Delete_My_Product(String Product_ID) throws SQLException {
 
-        try (Connection conn = getConnection();
-                PreparedStatement stm1 = conn.prepareStatement(query)){
-            stm1.setString(1,Product_ID);
-            ResultSet rs = stm1.executeQuery();
-            if (rs.next()){
-                String oldImage = rs.getString("ProductImageUrl");
-                if (oldImage != null && !oldImage.isEmpty()){
-                    File file = new File(DatabaseManager.ProductImages + File.separator + oldImage);
+        String imageName = null;
 
-                    if (file.exists()){
-                        boolean deleted = file.delete();
-                        if (!deleted) {
-                            System.out.println("Warning: Failed to delete old image");
-                        }
-                    }
+        try (Connection conn = getConnection()) {
+
+            conn.setAutoCommit(false);
+
+            // 1. Get image name
+            String query = "SELECT ProductImageUrl FROM Product_Table WHERE ProductID = ?";
+
+            try (PreparedStatement stm1 = conn.prepareStatement(query)) {
+                stm1.setString(1, Product_ID);
+                ResultSet rs = stm1.executeQuery();
+
+                if (rs.next()) {
+                    imageName = rs.getString("ProductImageUrl");
                 }
             }
-        }
 
-        String Query = """
-                DELETE FROM Product_Table WHERE ProductID = ?
-                """;
-        try (Connection conn = getConnection();
-                PreparedStatement stm = conn.prepareStatement(Query)){
-            stm.setString(1,Product_ID);
-            if(stm.executeUpdate() > 0){
-                return "OK";
-            }else {
-                return "!OK";
+            // 2. Delete DB record
+            String deleteQuery = "DELETE FROM Product_Table WHERE ProductID = ?";
+
+            try (PreparedStatement stm = conn.prepareStatement(deleteQuery)) {
+                stm.setString(1, Product_ID);
+
+                int rows = stm.executeUpdate();
+
+                if (rows > 0) {
+
+                    conn.commit();
+
+                    // 3. Delete file AFTER successful commit
+                    if (imageName != null && !imageName.isEmpty()) {
+                        File file = new File(DatabaseManager.ProductImages + File.separator + imageName);
+
+                        if (file.exists() && !file.delete()) {
+                            System.out.println("Warning: Failed to delete image");
+                        }
+                    }
+
+                    return "OK";
+                } else {
+                    conn.rollback();
+                    return "!OK";
+                }
             }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -803,10 +780,10 @@ public class DatabaseManager {
 
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(QUERY)) {
-            stm.setString(1, Data.getString("NewName"));
-            stm.setDouble(2, Data.getDouble("NewPrice")); // if your column is numeric
-            stm.setString(3, Data.getString("NewDescription"));
-            stm.setString(4, Data.getString("ProductID"));
+            stm.setString(1, Data.getString("name"));
+            stm.setDouble(2, Data.getDouble("price")); // if your column is numeric
+            stm.setString(3, Data.getString("description"));
+            stm.setString(4, Data.getString("ProdID"));
 
             int i = stm.executeUpdate();
 
@@ -831,7 +808,8 @@ public class DatabaseManager {
 
          try (Connection conn = getConnection();
                  PreparedStatement stm = conn.prepareStatement(select_image_Query)){
-             stm.setString(1,Data.getString("ProductID"));
+             stm.setString(1,Data.getString("ProdID"));
+
              ResultSet RS = stm.executeQuery();
 
              if (RS.next()) {
@@ -843,7 +821,7 @@ public class DatabaseManager {
 
                      if (file.exists()) {
                          boolean deleted = file.delete();
-                         System.out.println("file deleted");
+
                          if (!deleted) {
                              System.out.println("Warning: Failed to delete old image");
                          }
@@ -851,13 +829,13 @@ public class DatabaseManager {
                  }
 
                  //UPDATE DB
-                 try (Connection conn1 = getConnection();
-                         PreparedStatement stm1 = conn1.prepareStatement(update_Query)){
-                     stm1.setString(1,Data.getString("NewName"));
-                     stm1.setString(2,Data.getString("NewPrice"));
-                     stm1.setString(3,Data.getString("NewDescription"));
+                 try (PreparedStatement stm1 = conn.prepareStatement(update_Query)){
+
+                     stm1.setString(1,Data.getString("name"));
+                     stm1.setString(2,Data.getString("price"));
+                     stm1.setString(3,Data.getString("description"));
                      stm1.setString(4,Image_Name);
-                     stm1.setString(5,Data.getString("ProductID"));
+                     stm1.setString(5,Data.getString("ProdID"));
 
                      int row = stm1.executeUpdate();
                      if (row > 0) {
@@ -876,6 +854,7 @@ public class DatabaseManager {
                 """;
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(Query)){
+
             stm.setString(1,Retailer_ID);
             ResultSet RS = stm.executeQuery();;
             if (RS.next()){
@@ -893,6 +872,7 @@ public class DatabaseManager {
                 """;
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(findOwnerQuery)){
+
             stm.setString(1, Data.getString("ProductId"));
 
             ResultSet RS = stm.executeQuery();
@@ -910,21 +890,25 @@ public class DatabaseManager {
                             Quantity,
                             Amount_Per_Product,
                             Total_Amount,
-                            CustomerPhone
+                            CustomerPhone,
+                            Order_Status                        
                             )
-                            VALUES(?,?,?,?,?,?,?,?,?)
+                            VALUES(?,?,?,?,?,?,?,?,?,?)
                             """;
 
-                    try (PreparedStatement stm1 = getConnection().prepareStatement(insertNewProduct)){
+                    try (PreparedStatement stm1 = conn.prepareStatement(insertNewProduct)){
+
                         stm1.setString(1,Owner);
                         stm1.setString(2,SHA256.hash(Data.getString("ProductId") + Data.getInt("Quantity") + LocalDateTime.now()).substring(0,5));
                         stm1.setString(3,Data.getString("ProductId"));
-                        stm1.setString(4,String.valueOf(LocalDate.now()));
-                        stm1.setString(5,String.valueOf(LocalTime.now()));
+                        stm1.setDate(4,Date.valueOf(LocalDate.now()));
+                        stm1.setTime(5,Time.valueOf(LocalTime.now()));
                         stm1.setInt(6,Data.getInt("Quantity"));
-                        stm1.setInt(7,Data.getInt("ProductPrice"));
+                        BigDecimal price = new BigDecimal(Data.get("ProductPrice").toString());
+                        stm1.setBigDecimal(7,price);
                         stm1.setInt(8,(Data.getInt("Quantity") * Data.getInt("ProductPrice")));
                         stm1.setString(9,Data.getString("CustomerPhone"));
+                        stm1.setString(10,"Pending");
 
                         stm1.execute();
 
@@ -939,10 +923,25 @@ public class DatabaseManager {
 
     public static String GET_MY_ORDERS(String User_ID) throws SQLException{
         JSONArray Orders = new JSONArray();
+
+        String query = """
+            CREATE TABLE IF NOT EXISTS Accounts_Table (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                UserID VARCHAR(20) NOT NULL UNIQUE,
+                BusinessName VARCHAR(100) NOT NULL,
+                ProfileUrl VARCHAR(225),
+                Phone VARCHAR(225),
+                Email VARCHAR(150),
+                DialCode VARCHAR(10),
+                Ios2Code VARCHAR(10),
+                Country VARCHAR(20),
+                Account_Time_Stamp DATETIME
+            )
+            """;
         int index = 1;
         String Query = """
             SELECT o.*, 
-                   a.CurrencyCode, 
+                   a.Ios2Code, 
                    p.ProductName
             FROM Order_Table o
             INNER JOIN Accounts_Table a ON o.OwnerID = a.UserID
@@ -951,6 +950,7 @@ public class DatabaseManager {
             """;
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(Query)){
+
             stm.setString(1,User_ID);
             ResultSet RS = stm.executeQuery();
 
@@ -964,16 +964,68 @@ public class DatabaseManager {
                 Order.put("date",RS.getString("Date_Of_Order"));
                 Order.put("time",RS.getString("Time_Of_Order"));
                 Order.put("quantity",RS.getInt("Quantity"));
-                Order.put("amountPerProduct",RS.getInt("Amount_Per_Product"));
-                Order.put("totalAmount",RS.getInt("Total_Amount"));
+                Order.put("amountPerProduct",RS.getBigDecimal("Amount_Per_Product"));
+                Order.put("totalAmount",RS.getBigDecimal("Total_Amount"));
                 Order.put("customerPhone",RS.getString("CustomerPhone"));
                 Order.put("status", RS.getString("Order_Status"));
-                Order.put("currencyCode",Fetch_Categories.CountryToCurrencyMap.getString(RS.getString("currencyCode")));
+                Order.put("currencyCode", Fetch_Config_Data.CountryToCurrencyMap.getString(RS.getString("Ios2Code")));
                 Order.put("productName",RS.getString("ProductName"));
                 Orders.put(Order);
             }
         }
         return Orders.toString();
+    }
+
+    public static String INSERT_New_Store(JSONObject data,String StoreID) throws SQLException{
+        System.out.println(data);
+        String Query = """
+                INSERT INTO Store_Table (OwnerID,StoreID,StoreName,StoreEmail,StorePhone,StoreLocation,StorePassword,TimeStamp) 
+                VALUES (?,?,?,?,?,?,?,?)
+                """;
+
+        try (Connection conn = getConnection();
+                                 PreparedStatement stm = conn.prepareStatement(Query)){
+
+            stm.setString(1,data.getString("owner"));
+            stm.setString(2,StoreID);
+            stm.setString(3,data.getString("name"));
+            stm.setString(4,data.getString("email"));
+            stm.setString(5,data.getString("phone"));
+            stm.setString(6, data.getString("location"));
+            stm.setString(7,SHA256.hash(data.getString("password")));
+            stm.setString(8,String.valueOf(LocalDateTime.now()));
+
+            stm.execute();
+        }
+
+        return "OK";
+    }
+
+    public static String GET_MY_STORES(JSONObject data) throws SQLException{
+        JSONArray storeLIST = new JSONArray();
+        String query = """
+                SELECT * FROM Store_Table WHERE OwnerID = ?
+                """;
+
+        try (Connection conn = getConnection();
+                              PreparedStatement stm = conn.prepareStatement(query)){
+
+            stm.setString(1,data.getString("owner"));
+
+            ResultSet rs = stm.executeQuery();
+            while (rs.next()){
+                JSONObject store = new JSONObject();
+                store.put("id",rs.getString("StoreID"));
+                store.put("name",rs.getString("StoreName"));
+                store.put("email",rs.getString("StoreEmail"));
+                store.put("phone",rs.getString("StorePhone"));
+                store.put("location",rs.getString("StoreLocation"));
+
+                storeLIST.put(store);
+            }
+        }
+
+        return storeLIST.toString();
     }
 
     public static String SET_ORDER_STATUS(JSONObject Data) throws SQLException{
@@ -984,6 +1036,7 @@ public class DatabaseManager {
 
         try (Connection conn = getConnection();
                 PreparedStatement stm = conn.prepareStatement(Query)){
+
             stm.setString(1,Data.getString("status"));
             stm.setString(2,Data.getString("OrderID"));
 

@@ -15,18 +15,74 @@
     <div id="loading-overlay" class="hidden">
         <div class="loader-circle"><i class="fa-solid fa-bicycle"></i></div>
     </div>
-    <nav>
-        <div class="profile">
-            <div class="user-icon"><i class="fa-solid fa-user"></i></div>
-            <div class="user-pic"><img src="" alt=""></div>
+    <nav class="navbar">
+        <!-- Retailer Profile Wrapper -->
+        <div class="retailer-profile">
+
+            <!-- Main Signature (Always Visible) -->
+            <div class="retailer-signature">
+                <img src="" alt="Retailer Logo" class="avatar"
+                    onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';">
+                <p class="name" th:text="${retailer.retailerName}">Retailer Name</p>
+            </div>
+
+            <!-- Expandable Dropdown Container -->
+            <div class="retailer-profile-expand">
+                <button class="expand-btn" aria-label="Toggle details">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+
+                <!-- The Dropdown Body -->
+                <div class="expand-body">
+                    <div class="expand-body-profile">
+                        <img src="" class="avatar-large" alt="Retailer profile pic"
+                            onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';">
+
+                        <p class="name" th:text="${retailer.retailerName}">Retailer Name</p>
+                        <p class="id" th:text="${retailer.retailerId}">ID: #12345</p>
+                    </div>
+
+                    <div class="expand-row email">
+                        <i class="fa-solid fa-envelope icon-lead"></i>
+                        <p class="email" th:text="${retailer.retailerEmail}">retailer@email.com</p>
+                    </div>
+
+                    <div class="expand-row contact-row">
+                        <i class="fa-solid fa-phone icon-lead"></i>
+
+                        <p class="phone" th:text="${retailer.retailerPhone}">
+                            +1 234 567 890
+                        </p>
+
+                        <div class="contact-actions">
+
+                            <a th:href="'tel:' + ${retailer.retailerPhone}" class="contact-action btn-call"
+                                aria-label="Call retailer">
+                                <i class="fa-solid fa-phone-volume"></i>
+                            </a>
+
+                            <a th:href="'https://wa.me/' + ${retailer.retailerPhone}"
+                                class="contact-action btn-whatsapp" aria-label="Contact retailer on WhatsApp">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </a>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="meta-data">
-            <p class="name" th:text="${retailer.retailerName}"></p>
-            <p class="id" th:text="${retailer.retailerId}"></p>
-            <p class="email" th:text="${retailer.retailerEmail}"></p>
-            <div class="nav-bottom">
-                <p class="phone" th:text="${retailer.retailerPhone}"></p>
-                <i class="fa-solid fa-phone" id="call"></i>
+        </div>
+
+        <!-- Right Side / Search Area -->
+        <div class="key-search">
+            <div class="cartegories">
+                <p class="key">
+                    All
+                </p>
+            </div>
+            <div class="search">
+                <input type="text" name="" id="" class="Search-input" placeholder="Search...........">
+                <i class="fa-solid fa-search"></i>
             </div>
         </div>
     </nav>
@@ -63,6 +119,11 @@
             <button type="button" class="purchase-btn">Place Order</button>
         </div>
     </div>
+
+    <!-- Card Overlay for purchase and Payments 
+     This where the user or they buyer gets to buy 
+     and pay for a product 
+    -->
     <div class="cart-overlay">
         <div class="cart-modal">
 
@@ -72,7 +133,7 @@
             <!-- PRODUCT SECTION -->
             <div class="cart-product">
 
-                <img src="/image/photo-1555617766-c94804975da3.avif" alt="Product Image" class="cart-product__image">
+                <img src="" alt="Product Image" class="cart-product__image">
 
                 <div class="cart-product__details">
                     <p class="cart-product__name"></p>
@@ -84,7 +145,8 @@
 
             <!-- RETAILER INFO -->
             <div class="cart-retailer">
-                <img src="/image/photo-1555617766-c94804975da3.avif" alt="Retailer Image" class="cart-retailer__image">
+                <img alt="Retailer Image" class="cart-retailer__image"
+                    onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';">
 
                 <div class="cart-retailer__info">
                     <p class="cart-retailer__name"></p>
@@ -114,6 +176,8 @@
             </div>
         </div>
     </div>
+
+    <!-- THIS CARD WILL SHOW IF NO PRODUCT ARE FOUND AGAINST A SEARCH OR BY CARTEGORY -->
     <div class="no-found-products">
         <div class="icon-container">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -127,6 +191,8 @@
             <button type="button" class="btn-browse" onclick="window.location.reload()">Refresh Page</button>
         </div>
     </div>
+
+    <!-- This Overlay will be displaied if the purchase is successfull to tell the customer that the purchase is successfull -->
     <div class="success-overlay">
         <div id="success-screen" class="success-container">
             <div class="success-content">
@@ -145,10 +211,13 @@
             </div>
         </div>
     </div>
+
+    <!-- the main Page where all the produsts will be displayed  -->
     <main class="main">
     </main>
     <script th:inline="javascript">
         const Profile = /*[[${retailer.retailerProfile}]]*/ null;
+        const Backend_End_Point = /*[[${backend_endpoint}]]*/ "";
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.5/build/js/intlTelInput.min.js"></script>

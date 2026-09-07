@@ -1,4 +1,4 @@
-package org.example.bycicon;
+package org.example.omart;
 
 
 import Database.DatabaseManager;
@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 
-import javax.xml.transform.Result;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,93 +27,32 @@ import java.util.concurrent.*;
 @RequestMapping("/api")
 public class Processor {
 
-    private final ExecutorService threadPool = new ThreadPoolExecutor(4,
-            12,
-            60L,
-            TimeUnit.SECONDS
-            ,new ArrayBlockingQueue<>(100),
-            new ThreadPoolExecutor.CallerRunsPolicy());
-
     @PostMapping("/process")
-    public String process(@RequestBody String POST_DATA) throws SQLException, ExecutionException, InterruptedException { //DATA RECEIVED AS STRING
+    public String process(@RequestBody String POST_DATA) throws ExecutionException, InterruptedException, SQLException { //DATA RECEIVED AS STRING
 
         JSONObject DATA = new JSONObject(POST_DATA); // PASSING STRINGED JSON TO JSON
         String INSTRUCTION = DATA.getString("INSTRUCTION"); //RETRIEVING INSTRUCTION
 
-        Future<String> result = threadPool.submit(() -> {
-          //  System.out.println(DATA);
 
             switch (INSTRUCTION) {
-                case "SIGN-UP" -> {
-                    JSONObject Result = new JSONObject();
-                    String Name = DATA.getString("Name");
-                    String Password = DATA.getString("Password");
-                    String TimeStamp = LocalDateTime.now().toString();
-
-                    //computing id
-                    String ID = SHA256.hash(Name + Password + TimeStamp).substring(0,5) + "@bicycon";
-                    String NewPassword = SHA256.hash(Password);
-
-                    JSONObject newAccount = new JSONObject();
-                    newAccount.put("User-ID",ID);
-                    newAccount.put("User-Name",Name);
-                    newAccount.put("User-Password",NewPassword);
-                    newAccount.put("Time-Stamp",TimeStamp);
-
-                    String outPut = DatabaseManager.InsertNewAccount(newAccount);
-                    if (outPut.equals("OK")){
-                        Result.put("User-Name",Name);
-                        Result.put("User-ID", ID);
-                        Result.put("account_completed","NO");
-                    }
-
-                    return Result.toString();
+                case "CHECK-EXISTING-EMAIL"->{
+                    String email = DATA.getString("retailer-email");
+                    return DatabaseManager.CHECK_EXISTING_EMAIL(email);
                 }
 
-                case "SIGN-IN" -> {
-
-                    String userID = DATA.getString("SignInId");
-                    String password = DATA.getString("SignInPassword");
-                    String loginResult = DatabaseManager.Confirm_Logins(userID, password);
-                    JSONObject result1;
-
-                    switch (loginResult) {
-                        case "OK" -> {
-                            result1 = new JSONObject(DatabaseManager.FetchMyData(userID));
-                            result1.put("status", "OK");
-                            result1.put("User-ID",userID);
-                        }
-                        case "!OK" -> {
-                            result1 = new JSONObject();
-                            result1.put("status", "!OK");
-                        }
-                        case "!USER" -> {
-                            result1 = new JSONObject();
-                            result1.put("status", "!USER");
-                        }
-                        default -> {
-                            result1 = new JSONObject();
-                            result1.put("status", "ERROR");
-                        }
-                    }
-
-                    return result1.toString();
-                }
-
-                case "COMPLETE-ACCOUNT"->{
+                case "REGISTER-NEW-RETAILER" ->{
                     DATA.remove("INSTRUCTION");
-                    if (DatabaseManager.CompleteAccount(DATA).equals("OK")){
-                        DATA.remove("UserId");
-                        DATA.remove("CountryCode");
-                        DATA.put("status", "OK");
+                    String ID = SHA256.hash(DATA.getString("email")).substring(0,5) + "@bicycon";
+                    String status = DatabaseManager.InsertNewAccount(ID,DATA);
+                    if(status .equals("OK")){
+                        DATA.put("id",ID);
+                        DATA.put("currency",Fetch_Config_Data.CountryToCurrencyMap.getString(DATA.getString("iso2")));
                     }
-                    System.out.println(DATA);
                     return DATA.toString();
-
                 }
 
                 case "GET-CATEGORIES" ->{
-                    return Fetch_Categories.Categories.toString();
+                    return Fetch_Config_Data.Categories.toString();
                 }
 
                 case "GET-PRODUCT" ->{
@@ -123,30 +61,14 @@ public class Processor {
                 }
 
                 case "GET-MY-PRODUCTS" -> {
-                   //System.out.println(DATA);
                     String OutPut = DatabaseManager.GetAllMyProduct(DATA.getString("User_id"));
                     if(OutPut != null){
                         return OutPut;
                     }else {
                         JSONObject Result = new JSONObject();
                         Result.put("Status", "null");
-                        return null;
-                    }
-                }
-
-                case "UPDATE-EMAIL"->{
-
-                    String UserID = DATA.getString("UserID");
-                    String NewEmail = DATA.getString("NewEmail");
-
-                    if (DatabaseManager.UpdateEmail(UserID,NewEmail).equals("OK")){
-                        JSONObject Result = new JSONObject();
-                        Result.put("status","OK");
-                        Result.put("Email",NewEmail);
-
                         return Result.toString();
                     }
-                    return  null;
                 }
 
                 case "UPDATE-MY-PHONE"->{
@@ -174,7 +96,7 @@ public class Processor {
 
                 case "DELETE-MY-PRODUCT"->{
                     JSONObject Result = new JSONObject();
-                    String Product_ID = DATA.getString( "ProductID");
+                    String Product_ID = DATA.getString( "ProdID");
                     if (DatabaseManager.Delete_My_Product(Product_ID).equals("OK")){
                         Result.put("status","OK");
                     }
@@ -231,7 +153,7 @@ public class Processor {
 
                 case "GET-COUNTRY-CURRENCY-CODE"->{
                     JSONObject Result = new JSONObject();
-                    String currencyCode = Fetch_Categories.CountryToCurrencyMap.getString(DATA.getString("countryISO"));
+                    String currencyCode = Fetch_Config_Data.CountryToCurrencyMap.getString(DATA.getString("countryISO"));
                     Result.put("currencyCode",currencyCode);
                     return Result.toString();
                 }
@@ -251,6 +173,24 @@ public class Processor {
                     return JResult.toString();
                 }
 
+                case "GET-REVENUE-DATA" ->{
+                    return GetRevenueData.GetData(DATA);
+                }
+
+                case "INSERT-NEW-STORE" ->{
+                    JSONObject response = new JSONObject();
+                    String StoreID = SHA256.hash(DATA.getString("name") + DATA.getString("owner") + LocalDateTime.now()).substring(0,5) + "-" + DATA.getString("owner");
+                    String Response = DatabaseManager.INSERT_New_Store(DATA,StoreID);
+                    if (Response.equals("OK")){
+                        response.put("status","OK");
+                    }
+                    return response.toString();
+                }
+
+                case "GET-MY-STORES" ->{
+                    return DatabaseManager.GET_MY_STORES(DATA);
+                }
+
                 case "PING" -> {
                     JSONObject PING = new JSONObject();
                     PING.put("status", "OK");
@@ -263,9 +203,7 @@ public class Processor {
                     return PING.toString();
                 }
             }
-        });
 
-        return result.get();
     }
 
     //Completing account
@@ -292,8 +230,8 @@ public class Processor {
     }
 
     @PostMapping("/file")
-    private String NewProduct(@RequestParam("file")MultipartFile File , @RequestParam("Data")String data) throws ExecutionException, InterruptedException{
-       Future<String> result = threadPool.submit(()->{
+    private String NewProduct(@RequestParam("file")MultipartFile File , @RequestParam("Data")String data) throws ExecutionException, InterruptedException, SQLException, IOException {
+
             JSONObject Data = new JSONObject(data);
             String INSTRUCTION = Data.getString("INSTRUCTION");
            JSONObject uploadResult = new JSONObject();
@@ -329,14 +267,18 @@ public class Processor {
                     Data.put("ProdID",ProdID);
                     Data.put("ProdUrl",safeFileName);
 
-                    if (DatabaseManager.StoreNewProduct(Data) .equals("OK")){
+                    String Result = DatabaseManager.StoreNewProduct(Data);
+
+                    if (Result .equals("OK")){
                         uploadResult.put("status","OK");
+                    }else if (Result.equals("LIMIT_REACHED")){
+                        uploadResult.put("status","LIMIT_REACHED");
                     }
 
                     return uploadResult.toString();
                 }
 
-                case "UPDATE-PROFILE" ->{
+                case "UPDATE-PROFILE-PIC" ->{
                     String User_ID = Data.getString("UserID");
                     String FileName = File.getOriginalFilename();
                     String safeFileName = UUID.randomUUID() + "-" + FileName.replaceAll("\\s+", "_");
@@ -376,9 +318,7 @@ public class Processor {
                     return PING.toString();
                 }
             }
-        });
 
-        return result.get();
     }
 
 

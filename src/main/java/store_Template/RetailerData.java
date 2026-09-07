@@ -8,11 +8,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 public class RetailerData {
 
-    private String retailerName;
-    private String retailerId;
-    private String retailerEmail;
-    private String retailerPhone;
-    private String retailerProfile;
+    public String retailerName;
+    public String retailerId;
+    public String retailerEmail;
+    public String retailerPhone;
+    public String retailerProfile;
 
     public RetailerData(String retailerID) throws SQLException {
 
@@ -26,7 +26,7 @@ public class RetailerData {
 
             ResultSet RS = stm.executeQuery();
             if (RS.next()) {
-                this.retailerName = RS.getString("UserName");
+                this.retailerName = RS.getString("BusinessName");
                 this.retailerId = RS.getString("UserID");
                 this.retailerEmail = RS.getString("Email");
                 this.retailerPhone = RS.getString("Phone");
@@ -37,9 +37,5 @@ public class RetailerData {
         }
     }
 
-    public String getRetailerName() { return retailerName; }
     public String getRetailerId() { return retailerId; }
-    public String getRetailerEmail() { return retailerEmail; }
-    public String getRetailerPhone() { return retailerPhone; }
-    public String getRetailerProfile() { return retailerProfile; }
 }

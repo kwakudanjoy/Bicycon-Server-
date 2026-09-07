@@ -1,4 +1,4 @@
-package org.example.bycicon;
+package org.example.omart;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

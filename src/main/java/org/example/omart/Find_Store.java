@@ -1,4 +1,4 @@
-package org.example.bycicon;
+package org.example.omart;
 
 
 import org.springframework.http.HttpStatus;
@@ -17,12 +17,13 @@ import java.sql.SQLException;
 public class Find_Store {
 
     @GetMapping("/{slug}")
-    public String Retailer(@PathVariable String slug, Model model) throws SQLException {
+    public static String Retailer(@PathVariable String slug, Model model) throws SQLException {
         RetailerData retailer = new RetailerData(slug);
         if (retailer.getRetailerId() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Retailer not found");
         }
         model.addAttribute("retailer", retailer);
+        model.addAttribute("backend_endpoint",Fetch_Config_Data.SERVER_ENDPOINTS.getString("Server-public-url"));
         return "store";
     }
 }

@@ -1,4 +1,4 @@
-package org.example.bycicon;
+package org.example.omart;
 
 import Database.DatabaseManager;
 import org.json.JSONArray;
@@ -141,7 +141,7 @@ public class Search_Engine {
                 product.put("RetailerName", rs.getString("UserName"));
                 product.put("RetailerID", rs.getString("UserID"));
                 product.put("profilePic", rs.getString("ProfileUrl"));
-                product.put("currencyCode", Fetch_Categories.CountryToCurrencyMap.get(rs.getString("CurrencyCode")));
+                product.put("currencyCode", Fetch_Config_Data.CountryToCurrencyMap.get(rs.getString("CurrencyCode")));
 
                 // =========================
                 // STATS
